@@ -1,28 +1,43 @@
+import { useEffect, useState } from "react";
+import API from "../../services/api";
+
 export default function TeacherTimetable() {
-  const myClasses = [
-    { period: "9:00 AM", class: "8A", subject: "Math" },
-    { period: "11:00 AM", class: "9B", subject: "Physics" },
-  ];
+  const [timetable, setTimetable] = useState([]);
+
+  const fetchData = async () => {
+    try {
+      const res = await API.get("/timetable");
+      setTimetable(res.data.timetable || []);
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">My Timetable</h1>
+      <h2 className="text-2xl font-semibold mb-4">My Timetable</h2>
 
-      <table className="w-full bg-white shadow rounded border-collapse">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="border p-3 text-left">Period</th>
-            <th className="border p-3 text-left">Class</th>
-            <th className="border p-3 text-left">Subject</th>
+      <table className="w-full border">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="p-3 border">Class</th>
+            <th className="p-3 border">Subject</th>
+            <th className="p-3 border">Day</th>
+            <th className="p-3 border">Time</th>
           </tr>
         </thead>
 
         <tbody>
-          {myClasses.map((c, index) => (
-            <tr key={index}>
-              <td className="border p-3">{c.period}</td>
-              <td className="border p-3">{c.class}</td>
-              <td className="border p-3">{c.subject}</td>
+          {timetable.map((t) => (
+            <tr key={t.id} className="text-center">
+              <td className="p-3 border">{t.class_name}</td>
+              <td className="p-3 border">{t.subject}</td>
+              <td className="p-3 border">{t.day}</td>
+              <td className="p-3 border">{t.time}</td>
             </tr>
           ))}
         </tbody>

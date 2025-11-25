@@ -1,78 +1,94 @@
+// src/components/layout/Sidebar.jsx
 import { Link, useLocation } from "react-router-dom";
-import { FiHome, FiUsers, FiBookOpen, FiClock, FiPieChart } from "react-icons/fi";
+import { FiMenu, FiHome, FiUsers, FiClock, FiBookOpen, FiPieChart, FiMessageCircle } from "react-icons/fi";
+import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Sidebar() {
   const location = useLocation();
-  const { role } = useAuth();
+  const { user } = useAuth();
+  const role = user?.role || "";
 
-  // ============================
-  // ROLE-BASED MENUS
-  // ============================
+  const [collapsed, setCollapsed] = useState(false);
 
+  const toggleSidebar = () => setCollapsed(!collapsed);
+
+  // MENU CONFIGS
   const adminMenu = [
     { name: "Dashboard", path: "/admin-dashboard", icon: <FiHome /> },
     { name: "Attendance", path: "/attendance", icon: <FiClock /> },
     { name: "Students", path: "/students", icon: <FiUsers /> },
-    { name: "Add Student", path: "/add-student", icon: <FiUsers /> },
     { name: "Teachers", path: "/teachers", icon: <FiUsers /> },
-    { name: "Add Teacher", path: "/add-teacher", icon: <FiUsers /> },
     { name: "Timetable", path: "/timetable", icon: <FiBookOpen /> },
     { name: "AI Reports", path: "/ai-reports", icon: <FiPieChart /> },
-    { name: "Chatbot", path: "/chatbot", icon: <FiPieChart /> },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
   ];
 
   const teacherMenu = [
     { name: "Dashboard", path: "/teacher-dashboard", icon: <FiHome /> },
-    { name: "My Attendance", path: "/teacher-attendance", icon: <FiClock /> },
+    { name: "Mark Attendance", path: "/teacher-attendance", icon: <FiClock /> },
     { name: "My Timetable", path: "/teacher-timetable", icon: <FiBookOpen /> },
-    { name: "Chatbot", path: "/chatbot", icon: <FiPieChart /> },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
   ];
 
   const studentMenu = [
     { name: "Dashboard", path: "/student-dashboard", icon: <FiHome /> },
     { name: "My Timetable", path: "/student-timetable", icon: <FiClock /> },
-    { name: "Start Quiz", path: "/student-quiz", icon: <FiBookOpen /> },
-    { name: "Chatbot", path: "/chatbot", icon: <FiPieChart /> },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
   ];
 
   const parentMenu = [
     { name: "Dashboard", path: "/parent-dashboard", icon: <FiHome /> },
     { name: "Performance", path: "/parent-performance", icon: <FiPieChart /> },
-    { name: "Chatbot", path: "/chatbot", icon: <FiBookOpen /> },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
   ];
 
   const menu =
-    role === "Admin"
+    role === "admin"
       ? adminMenu
-      : role === "Teacher"
+      : role === "teacher"
       ? teacherMenu
-      : role === "Student"
+      : role === "student"
       ? studentMenu
-      : role === "Parent"
+      : role === "parent"
       ? parentMenu
       : [];
 
   return (
-    <aside className="w-64 bg-white h-screen shadow-sm p-4 hidden md:block">
-      <h2 className="text-xl font-semibold mb-6">Smart School</h2>
+    <aside
+      className={`bg-white h-screen shadow-md transition-all duration-300
+      ${collapsed ? "w-20" : "w-64"} hidden md:flex flex-col`}
+    >
+      {/* HEADER */}
+      <div className="flex items-center justify-between p-4 border-b">
+        {!collapsed && <h2 className="text-xl font-semibold">Smart School</h2>}
+        <FiMenu
+          className="cursor-pointer text-xl"
+          onClick={toggleSidebar}
+        />
+      </div>
 
-      <nav className="flex flex-col gap-3">
-        {menu.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`flex items-center gap-3 px-3 py-2 rounded 
-              ${
-                location.pathname === item.path
-                  ? "bg-blue-100 text-blue-600"
-                  : "hover:bg-gray-100"
-              }`}
-          >
-            {item.icon}
-            {item.name}
-          </Link>
-        ))}
+      {/* MENU ITEMS */}
+      <nav className="flex flex-col mt-4">
+        {menu.map((item) => {
+          const isActive = location.pathname === item.path;
+
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-3 px-4 py-3 text-sm rounded-lg mx-2 mb-1 transition-all
+                ${
+                  isActive
+                    ? "bg-blue-100 text-blue-600"
+                    : "hover:bg-gray-100 text-gray-700"
+                }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              {!collapsed && item.name}
+            </Link>
+          );
+        })}
       </nav>
     </aside>
   );

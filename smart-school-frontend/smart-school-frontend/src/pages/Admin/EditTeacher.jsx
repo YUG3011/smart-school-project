@@ -1,81 +1,77 @@
+// src/pages/Admin/EditTeacher.jsx
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import api from "../../../services/api";
+import API from "../../services/api";
+import { useNavigate, useParams } from "react-router-dom";
 
 export default function EditTeacher() {
-  const { id } = useParams();
   const navigate = useNavigate();
+  const { id } = useParams();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [subject, setSubject] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    subject: "",
+  });
+
+  const fetchTeacher = async () => {
+    try {
+      const res = await API.get(`/teachers/${id}`);
+      setForm(res.data.teacher);
+    } catch (err) {
+      console.error("Error fetching teacher:", err);
+    }
+  };
 
   useEffect(() => {
-    loadTeacher();
+    fetchTeacher();
   }, []);
 
-  async function loadTeacher() {
-    const teachers = await api.getTeachers();
-    const found = teachers.find((t) => String(t.id) === String(id));
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
-    if (!found) {
-      alert("Teacher not found");
-      return;
-    }
-
-    setName(found.name);
-    setEmail(found.email);
-    setSubject(found.subject);
-  }
-
-  async function handleSave(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      await api.updateTeacher(id, {
-        name,
-        email,
-        subject,
-      });
-
-      navigate("/admin/teachers");
+      await API.put(`/teachers/${id}`, form);
+      navigate("/teachers");
     } catch (err) {
-      console.error(err);
-      alert("Update failed");
+      console.error("Update failed:", err);
     }
-  }
+  };
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-semibold mb-6">Edit Teacher</h1>
+    <div className="p-6">
+      <h2 className="text-2xl font-semibold mb-5">Edit Teacher</h2>
 
-      <form onSubmit={handleSave} className="bg-white p-6 shadow rounded">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          className="border p-2 rounded w-full mb-3"
-          placeholder="Teacher Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          name="name"
+          value={form.name}
+          onChange={handleChange}
+          className="border p-3 rounded w-full"
         />
 
         <input
-          className="border p-2 rounded w-full mb-3"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          name="email"
+          value={form.email}
+          onChange={handleChange}
+          className="border p-3 rounded w-full"
         />
 
         <input
-          className="border p-2 rounded w-full mb-3"
-          placeholder="Subject"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
+          name="subject"
+          value={form.subject}
+          onChange={handleChange}
+          className="border p-3 rounded w-full"
         />
 
         <button
           type="submit"
-          className="bg-green-600 text-white w-full py-2 rounded hover:bg-green-700"
+          className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          Save Changes
+          Update Teacher
         </button>
       </form>
     </div>

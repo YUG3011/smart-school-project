@@ -1,40 +1,41 @@
+# routes/auth.py
 from flask import Blueprint, request, jsonify
-import bcrypt
-from flask_jwt_extended import create_access_token
+from utils.jwt_manager import create_access_token
 from utils.db import get_db
+import bcrypt
 
 bp = Blueprint("auth", __name__)
 
+# ------------------------------
+# LOGIN ROUTE
+# ------------------------------
 @bp.route("/login", methods=["POST"])
 def login():
-    data = request.json
+    data = request.get_json()
     email = data.get("email")
     password = data.get("password")
-    role = data.get("role")
 
-    conn = get_db()
-    user = conn.execute("""
-        SELECT * FROM users WHERE email=? AND role=?
-    """, (email, role)).fetchone()
+    db = get_db()
+    cursor = db.cursor()
+
+    # Check if user exists
+    cursor.execute("SELECT id, email, password, role FROM users WHERE email = ?", (email,))
+    user = cursor.fetchone()
 
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        return jsonify({"error": "Invalid email or password"}), 401
 
-    # bcrypt password check
-    if not bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8")):
-        return jsonify({"error": "Invalid password"}), 401
+    stored_hash = user["password"]
 
-    identity = str(user["id"])
+    # Check password using bcrypt
+    if not bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
+        return jsonify({"error": "Invalid email or password"}), 401
 
-    extra_claims = {
-        "role": user["role"],
-        "email": user["email"]
-    }
-
-    token = create_access_token(identity=identity, additional_claims=extra_claims)
+    # Create JWT token
+    token = create_access_token(identity={"id": user["id"], "role": user["role"]})
 
     return jsonify({
         "message": "Login successful",
-        "role": user["role"],
-        "token": token
-    })
+        "token": token,
+        "role": user["role"]
+    }), 200

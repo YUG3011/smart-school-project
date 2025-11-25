@@ -1,28 +1,56 @@
-import { createContext, useContext, useState } from "react";
+// src/context/AuthContext.jsx
+import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [role, setRole] = useState(null);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // save role on login
-  const login = (userRole) => {
-    setRole(userRole);
+  useEffect(() => {
+    try {
+      const savedToken = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+
+      if (savedToken && savedUser && savedUser !== "undefined" && savedUser !== "null") {
+        const parsedUser = JSON.parse(savedUser);
+        setToken(savedToken);
+        setUser(parsedUser);
+      } else {
+        // Auto cleanup invalid values
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
+    } catch (err) {
+      console.error("Auth parsing error:", err);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    }
+
+    setLoading(false);
+  }, []);
+
+  const login = (userData, tokenValue) => {
+    setUser(userData);
+    setToken(tokenValue);
+
+    localStorage.setItem("token", tokenValue);
+    localStorage.setItem("user", JSON.stringify(userData));
   };
 
-  // logout
   const logout = () => {
-    setRole(null);
+    setUser(null);
+    setToken(null);
+    localStorage.clear();
+    window.location.href = "/login";
   };
 
   return (
-    <AuthContext.Provider value={{ role, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook — THIS IS WHAT LOGIN PAGE NEEDS
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);

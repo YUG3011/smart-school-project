@@ -1,58 +1,90 @@
 import requests
+import json
 
-BASE = "http://127.0.0.1:5000"
+BASE_URL = "http://127.0.0.1:5000"
 
-print("\n===== LOGIN =====")
-login_res = requests.post(f"{BASE}/auth/login", json={
-    "email": "admin@school.com",
-    "password": "admin123",
-    "role": "Admin"
-})
+# -------------------------------------------------------------------
+# 1️⃣ LOGIN AND GET TOKEN
+# -------------------------------------------------------------------
+def login():
+    url = f"{BASE_URL}/api/auth/login"
+    payload = {
+        "email": "admin@school.com",
+        "password": "admin123",
+        "role": "Admin"
+    }
 
-print(login_res.status_code, login_res.text)
+    print("\n===== LOGIN =====")
+    response = requests.post(url, json=payload)
 
-try:
-    token = login_res.json().get("token", None)
-except:
-    token = None
+    if response.status_code == 200:
+        token = response.json()["token"]   # corrected field
+        print("✔ Login successful")
+        return token
+    else:
+        print("❌ Login failed:", response.text)
+        return None
 
-if not token:
-    print("❌ ERROR: Login did not return a token")
-    exit()
 
-print("\nToken Loaded:", token[:50], "...")
+# -------------------------------------------------------------------
+# Helper: Authorized headers
+# -------------------------------------------------------------------
+def auth_headers(token):
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
 
-headers = {"Authorization": f"Bearer {token}"}
 
-# GET Students
-print("\n===== GET STUDENTS =====")
-res = requests.get(f"{BASE}/students/", headers=headers)
-print(res.status_code, res.text)
+# -------------------------------------------------------------------
+# 2️⃣ TEST STUDENTS CRUD
+# -------------------------------------------------------------------
+def test_students(token):
 
-# ADD Student
-print("\n===== ADD STUDENT =====")
-res = requests.post(
-    f"{BASE}/students/",
-    json={"name": "API Student", "email": "api@example.com", "class_name": "10A"},
-    headers=headers
-)
-print(res.status_code, res.text)
+    print("\n===== ADD STUDENT =====")
+    r = requests.post(
+        f"{BASE_URL}/api/students/",
+        headers=auth_headers(token),
+        json={"name": "API Student", "email": "api@example.com", "class_name": "10A"}
+    )
+    print(r.status_code, r.text)
 
-# GET Students again
-print("\n===== STUDENTS AFTER ADD =====")
-res = requests.get(f"{BASE}/students/", headers=headers)
-print(res.status_code, res.text)
+    print("\n===== GET STUDENTS =====")
+    r = requests.get(
+        f"{BASE_URL}/api/students/",
+        headers=auth_headers(token)
+    )
+    print(r.status_code, r.text)
 
-# UPDATE Student (ID=1)
-print("\n===== UPDATE STUDENT ID=1 =====")
-res = requests.put(
-    f"{BASE}/students/1",
-    json={"name": "Updated Name"},
-    headers=headers
-)
-print(res.status_code, res.text)
+    students = r.json()
+    first_id = students[0]["id"]
 
-# DELETE Student
-print("\n===== DELETE STUDENT ID=1 =====")
-res = requests.delete(f"{BASE}/students/1", headers=headers)
-print(res.status_code, res.text)
+    print(f"\n===== UPDATE STUDENT ID={first_id} =====")
+    r = requests.put(
+        f"{BASE_URL}/api/students/{first_id}",
+        headers=auth_headers(token),
+        json={"name": "Updated Name", "email": "updated@example.com", "class_name": "12B"}
+    )
+    print(r.status_code, r.text)
+
+    print(f"\n===== DELETE STUDENT ID={first_id} =====")
+    r = requests.delete(
+        f"{BASE_URL}/api/students/{first_id}",
+        headers=auth_headers(token)
+    )
+    print(r.status_code, r.text)
+
+
+# -------------------------------------------------------------------
+# MAIN FLOW
+# -------------------------------------------------------------------
+if __name__ == "__main__":
+
+    token = login()
+    if not token:
+        print("❌ Stopping tests (login failed).")
+        exit()
+
+    test_students(token)
+
+    print("\n🎉 ALL TESTS COMPLETE")

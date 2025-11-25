@@ -1,44 +1,57 @@
+// src/pages/Teacher/TeacherAttendance.jsx
 import { useState } from "react";
+import API from "../../services/api";
 
 export default function TeacherAttendance() {
-  const [status, setStatus] = useState("Absent");
-  const [time, setTime] = useState("--");
+  const [studentId, setStudentId] = useState("");
+  const [message, setMessage] = useState("");
 
-  const markAttendance = () => {
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const handleMarkAttendance = async (e) => {
+    e.preventDefault();
+    setMessage("");
 
-    setStatus("Present");
-    setTime(formattedTime);
+    try {
+      const res = await API.post("/attendance/mark", {
+        face_id: studentId,
+      });
+
+      setMessage(res.data.message || "Attendance marked!");
+    } catch (err) {
+      console.error(err);
+      setMessage("Failed to mark attendance");
+    }
   };
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">Mark Your Attendance</h1>
+      <h2 className="text-2xl font-semibold mb-5">Mark Attendance</h2>
 
-      <div className="bg-white p-6 shadow rounded w-full md:w-1/2">
-
-        <p className="text-gray-600 text-lg">
-          Status:{" "}
-          {status === "Present" ? (
-            <span className="text-green-600 font-bold">Present</span>
-          ) : (
-            <span className="text-red-500 font-bold">Absent</span>
-          )}
-        </p>
-
-        <p className="mt-2 text-gray-700">Time: {time}</p>
+      <form
+        onSubmit={handleMarkAttendance}
+        className="space-y-4 max-w-md bg-white shadow p-6 rounded"
+      >
+        <input
+          type="text"
+          placeholder="Enter Student Face ID"
+          className="w-full border px-3 py-2 rounded"
+          value={studentId}
+          onChange={(e) => setStudentId(e.target.value)}
+          required
+        />
 
         <button
-          onClick={markAttendance}
-          className="mt-4 bg-blue-500 text-white px-5 py-2 rounded"
+          type="submit"
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
           Mark Attendance
         </button>
-      </div>
+      </form>
+
+      {message && (
+        <div className="mt-4 p-3 bg-blue-100 text-blue-700 rounded">
+          {message}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,29 +1,38 @@
+import { useEffect, useState } from "react";
+import API from "../../services/api";
+
 export default function StudentTimetable() {
-  const timetable = [
-    { day: "Monday", period: "9:00 AM", subject: "Math" },
-    { day: "Monday", period: "10:00 AM", subject: "Science" },
-    { day: "Tuesday", period: "9:00 AM", subject: "English" },
-  ];
+  const [timetable, setTimetable] = useState([]);
+
+  useEffect(() => {
+    API.get("/timetable")
+      .then((res) => setTimetable(res.data.timetable || []))
+      .catch((err) => console.error(err));
+  }, []);
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">My Timetable</h1>
+      <h2 className="text-2xl font-semibold mb-4">My Class Timetable</h2>
 
-      <table className="w-full bg-white shadow rounded border-collapse">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="border p-3 text-left">Day</th>
-            <th className="border p-3 text-left">Period</th>
-            <th className="border p-3 text-left">Subject</th>
+      <table className="w-full border">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="p-3 border">Class</th>
+            <th className="p-3 border">Subject</th>
+            <th className="p-3 border">Teacher</th>
+            <th className="p-3 border">Day</th>
+            <th className="p-3 border">Time</th>
           </tr>
         </thead>
 
         <tbody>
-          {timetable.map((t, index) => (
-            <tr key={index}>
-              <td className="border p-3">{t.day}</td>
-              <td className="border p-3">{t.period}</td>
-              <td className="border p-3">{t.subject}</td>
+          {timetable.map((t) => (
+            <tr key={t.id} className="text-center">
+              <td className="p-3 border">{t.class_name}</td>
+              <td className="p-3 border">{t.subject}</td>
+              <td className="p-3 border">{t.teacher_name}</td>
+              <td className="p-3 border">{t.day}</td>
+              <td className="p-3 border">{t.time}</td>
             </tr>
           ))}
         </tbody>

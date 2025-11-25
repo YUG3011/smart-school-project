@@ -1,83 +1,94 @@
-// src/pages/Teachers/TeachersPage.jsx
+// src/pages/Admin/TeachersPage.jsx
 import { useEffect, useState } from "react";
-import api from "../../services/api";
-import AddTeacher from "./AddTeacher";
+import API from "../../services/api";
+import { Link } from "react-router-dom";
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Load teachers from backend
-  const loadTeachers = async () => {
-    const res = await api.getTeachers();
-    setTeachers(res || []);
-  };
-
-  useEffect(() => {
-    loadTeachers();
-  }, []);
-
-  // Delete teacher
-  const deleteTeacher = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this teacher?")) return;
-
+  const fetchTeachers = async () => {
     try {
-      await api.deleteTeacher(id);
-      loadTeachers();
+      const res = await API.get("/teachers");
+      setTeachers(res.data.teachers || []);
+      setLoading(false);
     } catch (err) {
-      console.error(err);
-      alert("Error deleting teacher");
+      console.error("Error fetching teachers:", err);
+      setLoading(false);
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this teacher?")) return;
+
+    try {
+      await API.delete(`/teachers/${id}`);
+      fetchTeachers();
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
+
+  if (loading) return <div className="p-6 text-lg">Loading...</div>;
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Manage Teachers</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold">Teachers</h2>
 
-      {/* Add Teacher Form */}
-      <AddTeacher onAdded={loadTeachers} />
+        <Link
+          to="/add-teacher"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          + Add Teacher
+        </Link>
+      </div>
 
-      {/* Teachers List */}
-      <div className="bg-white p-5 rounded shadow">
-        <h2 className="text-xl font-semibold mb-4">Teachers List</h2>
-
-        <table className="w-full border-collapse">
+      {teachers.length === 0 ? (
+        <p>No teachers found.</p>
+      ) : (
+        <table className="w-full border">
           <thead>
-            <tr className="bg-gray-200 text-left">
-              <th className="p-2 border">Name</th>
-              <th className="p-2 border">Subject</th>
-              <th className="p-2 border">Phone</th>
-              <th className="p-2 border text-center">Actions</th>
+            <tr className="bg-gray-200">
+              <th className="p-3 border">ID</th>
+              <th className="p-3 border">Name</th>
+              <th className="p-3 border">Email</th>
+              <th className="p-3 border">Subject</th>
+              <th className="p-3 border">Action</th>
             </tr>
           </thead>
 
           <tbody>
             {teachers.map((t) => (
-              <tr key={t.id} className="border">
-                <td className="p-2 border">{t.name}</td>
-                <td className="p-2 border">{t.subject}</td>
-                <td className="p-2 border">{t.phone}</td>
-
-                <td className="p-2 border text-center">
-                  <button
-                    onClick={() => deleteTeacher(t.id)}
-                    className="text-red-500 hover:text-red-700"
+              <tr key={t.id} className="text-center">
+                <td className="p-3 border">{t.id}</td>
+                <td className="p-3 border">{t.name}</td>
+                <td className="p-3 border">{t.email}</td>
+                <td className="p-3 border">{t.subject}</td>
+                <td className="p-3 border space-x-3">
+                  <Link
+                    to={`/edit-teacher/${t.id}`}
+                    className="text-blue-600"
                   >
-                    Delete ❌
+                    Edit
+                  </Link>
+
+                  <button
+                    onClick={() => handleDelete(t.id)}
+                    className="text-red-600"
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>
             ))}
-
-            {teachers.length === 0 && (
-              <tr>
-                <td colSpan="4" className="p-3 text-center text-gray-500">
-                  No teachers found.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
-      </div>
+      )}
     </div>
   );
 }

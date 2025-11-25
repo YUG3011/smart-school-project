@@ -1,34 +1,31 @@
+// src/components/layout/Topbar.jsx
+import { FiLogOut, FiMenu } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 
-export default function Topbar() {
-  const { role, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout(); // remove role from context
-    navigate("/login"); // redirect to login page
-  };
+export default function Topbar({ toggleSidebarMobile }) {
+  const { user, logout } = useAuth();
 
   return (
-    <header className="w-full h-14 bg-white shadow-sm flex items-center justify-between px-6">
-      
-      {/* LEFT SIDE - PAGE TITLE (Optional, can add dynamic) */}
-      <h1 className="text-lg font-semibold">Smart School Dashboard</h1>
+    <div className="w-full bg-white shadow-sm p-4 flex items-center justify-between">
+      {/* 🌐 Mobile Sidebar Button */}
+      <FiMenu
+        className="text-2xl cursor-pointer md:hidden"
+        onClick={toggleSidebarMobile}
+      />
 
-      {/* RIGHT SIDE - ROLE + LOGOUT */}
+      <h1 className="text-xl font-semibold">Welcome, {user?.name || "User"}</h1>
+
       <div className="flex items-center gap-4">
-        <span className="font-medium text-gray-700">
-          Role: <span className="text-blue-600">{role}</span>
-        </span>
+        <span className="text-gray-600 text-sm">{user?.role?.toUpperCase()}</span>
 
         <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-1 rounded"
+          onClick={logout}
+          className="flex items-center gap-2 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
         >
-          Logout
+          <FiLogOut />
+          <span className="hidden md:block">Logout</span>
         </button>
       </div>
-    </header>
+    </div>
   );
 }

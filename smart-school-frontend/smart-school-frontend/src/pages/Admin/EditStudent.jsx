@@ -1,113 +1,77 @@
+// src/pages/Admin/EditStudent.jsx
 import { useEffect, useState } from "react";
+import API from "../../services/api";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../../../services/api";
 
 export default function EditStudent() {
-  const { id } = useParams();
   const navigate = useNavigate();
+  const { id } = useParams();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [className, setClassName] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    class_name: "",
+  });
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Load student by ID
-  useEffect(() => {
-    async function fetchStudent() {
-      try {
-        const all = await api.getStudents();
-        const student = all.find((s) => String(s.id) === String(id));
-
-        if (!student) {
-          setError("Student not found");
-          return;
-        }
-
-        setName(student.name);
-        setEmail(student.email);
-        setClassName(student.class_name);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load student");
-      }
-
-      setLoading(false);
-    }
-
-    fetchStudent();
-  }, [id]);
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setError("");
-
+  const fetchStudent = async () => {
     try {
-      const res = await api.updateStudent(id, {
-        name,
-        email,
-        class_name: className,
-      });
-
-      if (res.message === "Updated") {
-        navigate("/admin/students");
-      } else {
-        setError("Update failed");
-      }
+      const res = await API.get(`/students/${id}`);
+      setForm(res.data.student);
     } catch (err) {
-      console.error(err);
-      setError("Something went wrong");
+      console.error("Error loading student:", err);
     }
   };
 
-  if (loading) return <p className="p-6 text-center">Loading...</p>;
+  useEffect(() => {
+    fetchStudent();
+  }, []);
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      await API.put(`/students/${id}`, form);
+      navigate("/students");
+    } catch (err) {
+      console.error("Update failed:", err);
+    }
+  };
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-3xl font-semibold mb-6">Edit Student</h1>
+    <div className="p-6">
+      <h2 className="text-2xl font-semibold mb-5">Edit Student</h2>
 
-      {error && <p className="text-red-500 mb-3">{error}</p>}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          name="name"
+          value={form.name}
+          onChange={handleChange}
+          className="border p-3 rounded w-full"
+        />
 
-      <form onSubmit={handleSave} className="bg-white p-6 shadow rounded-lg">
-        <div className="mb-4">
-          <label className="block font-semibold mb-1">Student Name</label>
-          <input
-            type="text"
-            className="border w-full p-2 rounded"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter full name"
-          />
-        </div>
+        <input
+          name="email"
+          value={form.email}
+          onChange={handleChange}
+          className="border p-3 rounded w-full"
+        />
 
-        <div className="mb-4">
-          <label className="block font-semibold mb-1">Email</label>
-          <input
-            type="email"
-            className="border w-full p-2 rounded"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="student@example.com"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block font-semibold mb-1">Class</label>
-          <input
-            type="text"
-            className="border w-full p-2 rounded"
-            value={className}
-            onChange={(e) => setClassName(e.target.value)}
-            placeholder="e.g. 10A"
-          />
-        </div>
+        <input
+          name="class_name"
+          value={form.class_name}
+          onChange={handleChange}
+          className="border p-3 rounded w-full"
+        />
 
         <button
           type="submit"
-          className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded"
+          className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          Save Changes
+          Update Student
         </button>
       </form>
     </div>

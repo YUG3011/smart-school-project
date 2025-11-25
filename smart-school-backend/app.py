@@ -1,86 +1,44 @@
 # app.py
-import os
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from utils.db import close_db
 
-def create_app():
-    app = Flask(__name__)
+# Import Blueprints
+from routes.auth import bp as auth_bp
+from routes.students import bp as students_bp
+from routes.teachers import bp as teachers_bp
+from routes.attendance import bp as attendance_bp
+from routes.timetable import bp as timetable_bp
+from routes.chatbot import chatbot_bp
 
-    # ========== CONFIG ==========
-    app.config["ENV"] = os.environ.get("FLASK_ENV", "development")
-    app.config["DEBUG"] = app.config["ENV"] == "development"
-    app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "super-secret-dev-key")
+app = Flask(__name__)
 
-    # ========== EXTENSIONS ==========
-    CORS(app, resources={r"/*": {"origins": "*"}})
-    jwt = JWTManager(app)
+# SECRET KEY for JWT (used by PyJWT)
+app.config["SECRET_KEY"] = "SMART_SCHOOL_SECRET_KEY_123"
 
-    # ===== Register Blueprints (Routes) =====
-    try:
-        from routes.auth import bp as auth_bp
-        app.register_blueprint(auth_bp, url_prefix="/auth")
-    except Exception as e:
-        app.logger.warning("Could not register auth blueprint: %s", e)
+# Enable CORS
+CORS(app)
 
-    try:
-        from routes.students import bp as students_bp
-        app.register_blueprint(students_bp, url_prefix="/students")
-    except Exception as e:
-        app.logger.warning("Could not register students blueprint: %s", e)
+# -------------------------------
+# Register API Blueprints
+# -------------------------------
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+app.register_blueprint(students_bp, url_prefix="/api/students")
+app.register_blueprint(teachers_bp, url_prefix="/api/teachers")
+app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
+app.register_blueprint(timetable_bp, url_prefix="/api/timetable")
+app.register_blueprint(chatbot_bp, url_prefix="/api/chatbot")
 
-    try:
-        from routes.teachers import bp as teachers_bp
-        app.register_blueprint(teachers_bp, url_prefix="/teachers")
-    except Exception as e:
-        app.logger.warning("Could not register teachers blueprint: %s", e)
+# Home route
+@app.route("/")
+def home():
+    return {
+        "message": "Smart School Backend running",
+        "status": "ok"
+    }, 200
 
-    try:
-        from routes.timetable import bp as timetable_bp
-        app.register_blueprint(timetable_bp, url_prefix="/timetable")
-    except Exception as e:
-        app.logger.warning("Could not register timetable blueprint: %s", e)
-
-    try:
-        from routes.attendance import bp as attendance_bp
-        app.register_blueprint(attendance_bp, url_prefix="/attendance")
-    except Exception as e:
-        app.logger.warning("Could not register attendance blueprint: %s", e)
-
-    # ========== HEALTH CHECK ==========
-    @app.route("/", methods=["GET"])
-    def index():
-        return jsonify({"status": "ok", "message": "Smart School Backend running"}), 200
-
-    # Global Error Handlers
-    @app.errorhandler(400)
-    def bad_request(e):
-        return jsonify({"error": "Bad request", "message": str(e)}), 400
-
-    @app.errorhandler(401)
-    def unauthorized(e):
-        return jsonify({"error": "Unauthorized", "message": str(e)}), 401
-
-    @app.errorhandler(404)
-    def not_found(e):
-        return jsonify({"error": "Not found", "message": str(e)}), 404
-
-    @app.errorhandler(500)
-    def internal_error(e):
-        return jsonify({"error": "Internal server error", "message": str(e)}), 500
-
-    return app
-
+# Close DB connection
+app.teardown_appcontext(close_db)
 
 if __name__ == "__main__":
-    # ===== Initialize DB tables here =====
-    try:
-        from models.student import create_students_table
-        create_students_table()
-        print("✔ Students table ready.")
-    except Exception as e:
-        print("⚠ Could not create students table:", e)
-
-    # ===== Create App =====
-    app = create_app()
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(debug=True)

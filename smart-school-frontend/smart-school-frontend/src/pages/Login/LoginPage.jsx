@@ -1,52 +1,68 @@
 // src/pages/Login/LoginPage.jsx
-
 import { useState } from "react";
+import { loginUser } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import api from "../../services/api";   // ✅ correct path
 
-export default function LoginPage() {
+const LoginPage = () => {
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("Admin");
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
+
   const [error, setError] = useState("");
 
-  const handleLogin = async (e) => {
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
-      // Call backend API
-      const res = await api.login({
-        email,
-        password,
-        role,
-      });
+      const res = await loginUser(form);
 
-      if (!res.token) {
-        setError("Invalid credentials");
-        return;
+      const token = res.data.token;
+      const role = res.data.role;
+
+      // Build user object manually
+      const userData = { role: role };
+
+      // Save into AuthContext
+      login(userData, token);
+
+      // Route based on role
+      switch (role) {
+        case "admin":
+          navigate("/admin-dashboard");
+          break;
+        case "teacher":
+          navigate("/teacher-dashboard");
+          break;
+        case "student":
+          navigate("/student-dashboard");
+          break;
+        case "parent":
+          navigate("/parent-dashboard");
+          break;
+        default:
+          navigate("/");
       }
 
-      // Save JWT token
-      localStorage.setItem("token", res.token);
-
-      // Redirect based on role
-      if (role === "Admin") navigate("/admin");
-      if (role === "Teacher") navigate("/teacher");
-      if (role === "Student") navigate("/student");
-      if (role === "Parent") navigate("/parent");
     } catch (err) {
       console.error(err);
-      setError("Login failed. Try again.");
+      setError("Invalid email or password");
     }
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100">
+    <div className="login-container w-full h-screen flex justify-center items-center bg-gray-100">
       <form
-        onSubmit={handleLogin}
+        onSubmit={handleSubmit}
         className="bg-white p-8 rounded shadow-md w-96"
       >
         <h2 className="text-2xl font-semibold mb-6 text-center">
@@ -55,34 +71,22 @@ export default function LoginPage() {
 
         {error && <p className="text-red-500 text-center mb-3">{error}</p>}
 
-        {/* Role Selection */}
-        <select
-          className="w-full border px-3 py-2 mb-3 rounded"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        >
-          <option value="Admin">Admin</option>
-          <option value="Teacher">Teacher</option>
-          <option value="Student">Student</option>
-          <option value="Parent">Parent</option>
-        </select>
-
         <input
+          name="email"
           type="email"
           placeholder="Email"
+          value={form.email}
+          onChange={handleChange}
           className="w-full border px-3 py-2 mb-3 rounded"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
         />
 
         <input
+          name="password"
           type="password"
           placeholder="Password"
+          value={form.password}
+          onChange={handleChange}
           className="w-full border px-3 py-2 mb-3 rounded"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
         />
 
         <button
@@ -94,4 +98,6 @@ export default function LoginPage() {
       </form>
     </div>
   );
-}
+};
+
+export default LoginPage;

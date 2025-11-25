@@ -1,67 +1,59 @@
-import { useState } from "react";
+// src/pages/Admin/AttendancePage.jsx
+import { useEffect, useState } from "react";
+import API from "../../services/api";
 
 export default function AttendancePage() {
-  const [search, setSearch] = useState("");
+  const [attendance, setAttendance] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Temporary student data (later comes from backend)
-  const students = [
-    { id: 1, name: "Chetan Yadav", status: "Present", time: "09:00 AM" },
-    { id: 2, name: "Rahul Singh", status: "Absent", time: "--" },
-    { id: 3, name: "Anjali Verma", status: "Present", time: "09:05 AM" },
-  ];
+  const fetchAttendance = async () => {
+    try {
+      const res = await API.get("/attendance");
+      setAttendance(res.data.attendance || []);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching attendance:", err);
+      setLoading(false);
+    }
+  };
 
-  const filteredData = students.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    fetchAttendance();
+  }, []);
+
+  if (loading) return <div className="p-6 text-lg">Loading...</div>;
 
   return (
     <div className="p-6">
+      <h2 className="text-2xl font-semibold mb-6">Attendance Records</h2>
 
-      <h1 className="text-2xl font-semibold mb-6">Attendance</h1>
-
-      {/* Search box */}
-      <input
-        type="text"
-        placeholder="Search student..."
-        className="border p-2 rounded w-full mb-4"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      {/* Table */}
-      <table className="w-full border-collapse bg-white shadow rounded overflow-hidden">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="border p-3 text-left">Name</th>
-            <th className="border p-3 text-left">Status</th>
-            <th className="border p-3 text-left">Time</th>
-            <th className="border p-3 text-left">Action</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {filteredData.map((student) => (
-            <tr key={student.id} className="border-b">
-              <td className="p-3">{student.name}</td>
-              <td className="p-3">
-                {student.status === "Present" ? (
-                  <span className="text-green-600 font-semibold">Present</span>
-                ) : (
-                  <span className="text-red-500 font-semibold">Absent</span>
-                )}
-              </td>
-              <td className="p-3">{student.time}</td>
-              <td className="p-3">
-                <button
-                  className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                >
-                  Mark Present
-                </button>
-              </td>
+      {attendance.length === 0 ? (
+        <p>No attendance records found.</p>
+      ) : (
+        <table className="w-full border">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="p-3 border">ID</th>
+              <th className="p-3 border">Face ID</th>
+              <th className="p-3 border">Status</th>
+              <th className="p-3 border">Timestamp</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {attendance.map((a) => (
+              <tr key={a.id} className="text-center">
+                <td className="p-3 border">{a.id}</td>
+                <td className="p-3 border">{a.face_id}</td>
+                <td className="p-3 border">{a.status}</td>
+                <td className="p-3 border">
+                  {new Date(a.timestamp).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
