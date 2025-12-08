@@ -1,11 +1,14 @@
 // src/pages/Login/LoginPage.jsx
-import { useState } from "react";
-import { loginUser } from "../../services/api";
+
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+const API_URL = "http://127.0.0.1:5000/api";
 
 const LoginPage = () => {
-  const { login } = useAuth();
+  const { login, selectedRole } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -15,31 +18,49 @@ const LoginPage = () => {
 
   const [error, setError] = useState("");
 
+  // If no role selected → redirect to /role
+  useEffect(() => {
+    if (!selectedRole) {
+      navigate("/role");
+    }
+  }, [selectedRole, navigate]);
+
+
+  // Handle input change
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+
+  // LOGIN SUBMIT HANDLER
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    console.log("Login form submitted");
+
+    if (!selectedRole) {
+      setError("Please select a role before logging in");
+      navigate("/role");
+      return;
+    }
 
     try {
-      console.log("Calling loginUser with:", form);
-      const res = await loginUser(form);
-      console.log("loginUser response:", res);
+      // Correct endpoint based on selectedRole
+      const endpoint = `${API_URL}/auth/login/${selectedRole}`;
 
+      const res = await axios.post(endpoint, form);
       const token = res.data.token;
-      const role = res.data.role;
+      const user = res.data.user; // backend must return { name, email, role }
 
-      // Build user object manually
-      const userData = { role: role };
+      if (!token || !user) {
+        setError("Invalid response from server");
+        return;
+      }
 
-      // Save into AuthContext
-      login(userData, token);
+      // Save user & token into AuthContext
+      login(user, token);
 
-      // Route based on role
-      switch (role) {
+      // Redirect based on role
+      switch (user.role) {
         case "admin":
           navigate("/admin-dashboard");
           break;
@@ -49,19 +70,18 @@ const LoginPage = () => {
         case "student":
           navigate("/student-dashboard");
           break;
-        case "parent":
-          navigate("/parent-dashboard");
-          break;
         default:
           navigate("/");
       }
 
     } catch (err) {
-      console.error("Login failed:", err);
+      console.error("Login error:", err);
       setError("Invalid email or password");
     }
   };
 
+
+  // RENDER UI
   return (
     <div className="login-container w-full h-screen flex justify-center items-center bg-gray-100">
       <form
@@ -69,7 +89,7 @@ const LoginPage = () => {
         className="bg-white p-8 rounded shadow-md w-96"
       >
         <h2 className="text-2xl font-semibold mb-6 text-center">
-          Smart School Login
+          Login as {selectedRole ? selectedRole.toUpperCase() : ""}
         </h2>
 
         {error && <p className="text-red-500 text-center mb-3">{error}</p>}
@@ -81,6 +101,7 @@ const LoginPage = () => {
           value={form.email}
           onChange={handleChange}
           className="w-full border px-3 py-2 mb-3 rounded"
+          required
         />
 
         <input
@@ -90,6 +111,7 @@ const LoginPage = () => {
           value={form.password}
           onChange={handleChange}
           className="w-full border px-3 py-2 mb-3 rounded"
+          required
         />
 
         <button

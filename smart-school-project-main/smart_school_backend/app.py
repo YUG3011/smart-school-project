@@ -5,6 +5,8 @@ from flask_cors import CORS
 import sys
 import os
 
+from routes.student_attendance import student_attendance_bp
+
 
 # Ensure the project root is added to Python path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -116,6 +118,8 @@ app.register_blueprint(student_attendance_bp, url_prefix="/api/student-attendanc
 app.register_blueprint(face_recognition_bp, url_prefix="/api/face-recognition")
 app.register_blueprint(automatic_attendance_bp, url_prefix="/api/auto-attendance")
 app.register_blueprint(realtime_attendance_bp, url_prefix="/api/realtime-attendance")
+app.register_blueprint(student_attendance_bp)
+
 
 # Home route
 @app.route("/")
