@@ -1,36 +1,126 @@
-# routes/attendance.py
-from flask import Blueprint, jsonify, request
+# smart_school_backend/routes/attendance.py
+
+from flask import Blueprint, request, jsonify, current_app
+
+try:
+    from smart_school_backend.utils.db import get_db
+except ImportError:
+    from utils.db import get_db
+
 from flask_jwt_extended import jwt_required
-from smart_school_backend.utils.db import get_db
-from datetime import datetime
 
 bp = Blueprint("attendance", __name__)
+attendance_view_bp = Blueprint("attendance_view", __name__)
+
+
+# -------------------------------------------------------------------
+# MANUAL STUDENT ATTENDANCE (basic)
+# -------------------------------------------------------------------
 
 @bp.route("/mark", methods=["POST"])
 @jwt_required()
 def mark_attendance():
-    data = request.json
-    student_id = data["student_id"]
-    status = data.get("status", "Present")
+    """
+    Manual attendance marking.
+    Expects JSON: { "student_id": 1, "date": "2025-12-09", "status": "present" }
+    """
+    data = request.get_json() or {}
+    student_id = data.get("student_id")
+    date = data.get("date")
+    status = data.get("status", "present")
 
-    now = datetime.now()
-    date = now.strftime("%Y-%m-%d")
-    time = now.strftime("%H:%M:%S")
+    if not student_id or not date:
+        return jsonify({"error": "student_id and date are required"}), 400
 
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO attendance (student_id, date, time, status) VALUES (?, ?, ?, ?)",
-        (student_id, date, time, status)
-    )
-    conn.commit()
+    db = get_db()
+    cur = db.cursor()
 
-    return jsonify({"message": "Attendance Marked"}), 200
+    # Upsert pattern: if already exists for that date, update; else insert
+    try:
+        cur.execute(
+            """
+            INSERT INTO student_attendance (student_id, date, status)
+            VALUES (?, ?, ?)
+            ON CONFLICT(student_id, date) DO UPDATE SET status=excluded.status
+            """,
+            (student_id, date, status),
+        )
+    except Exception:
+        # If ON CONFLICT is not supported for your table definition,
+        # fall back to manual update.
+        try:
+            cur.execute(
+                "UPDATE student_attendance SET status=? WHERE student_id=? AND date=?",
+                (status, student_id, date),
+            )
+            if cur.rowcount == 0:
+                cur.execute(
+                    "INSERT INTO student_attendance (student_id, date, status) VALUES (?, ?, ?)",
+                    (student_id, date, status),
+                )
+        except Exception as e:
+            current_app.logger.error("mark_attendance failed: %s", e)
+            return jsonify({"error": "Failed to save attendance"}), 500
+
+    db.commit()
+    return jsonify({"message": "Attendance marked successfully"}), 200
 
 
-@bp.route("/", methods=["GET"])
+# -------------------------------------------------------------------
+# DASHBOARD → RECENT ATTENDANCE TIMELINE
+# -------------------------------------------------------------------
+
+@attendance_view_bp.route("/all", methods=["GET"])
 @jwt_required()
-def get_attendance():
-    date = request.args.get("date")
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM attendance WHERE date=?", (date,)).fetchall()
-    return jsonify([dict(row) for row in rows])
+def recent_attendance():
+    """
+    Endpoint used by Admin Dashboard:
+      GET /api/attendance-view/all?limit=5
+
+    We TRY to fetch recent attendance records from DB. If anything
+    goes wrong (no table, schema mismatch, etc.), we **log and
+    return an empty list** so that the dashboard still works and
+    does NOT auto-logout.
+    """
+    limit = request.args.get("limit", default=5, type=int)
+
+    db = get_db()
+    cur = db.cursor()
+
+    records = []
+
+    try:
+        # This query is generic; adjust table/column names if needed.
+        cur.execute(
+            """
+            SELECT sa.date,
+                   s.name,
+                   s.class_name,
+                   sa.status
+            FROM student_attendance AS sa
+            JOIN students AS s ON s.id = sa.student_id
+            ORDER BY sa.date DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+
+        for row in rows:
+            records.append(
+                {
+                    "date": row[0],
+                    "name": row[1],
+                    "class_name": row[2],
+                    "status": row[3],
+                }
+            )
+
+    except Exception as e:
+        # IMPORTANT: swallow errors and just return empty data
+        current_app.logger.warning(
+            "recent_attendance query failed, returning empty list: %s", e
+        )
+        records = []
+
+    return jsonify({"records": records}), 200

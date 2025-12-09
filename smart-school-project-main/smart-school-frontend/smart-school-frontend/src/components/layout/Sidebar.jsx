@@ -1,65 +1,103 @@
-// smart-school-frontend/src/components/layout/Sidebar.jsx
+// src/components/layout/Sidebar.jsx
 
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { useState } from "react";
+
 import {
-  FiMenu,
   FiHome,
   FiUsers,
-  FiClock,
+  FiUserPlus,
   FiBookOpen,
+  FiMenu,
+  FiCamera,
+  FiClipboard,
   FiPieChart,
   FiMessageCircle,
-  FiUserPlus
 } from "react-icons/fi";
-import { useState } from "react";
-import { useAuth } from "../../context/AuthContext";
 
 export default function Sidebar() {
-  const location = useLocation();
   const { user } = useAuth();
   const role = user?.role || "";
-
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
   const toggleSidebar = () => setCollapsed(!collapsed);
 
-  // ---------------------------
-  // ADMIN MENU CONFIG
-  // ---------------------------
+  // -----------------------------
+  // ADMIN MENU
+  // -----------------------------
   const adminMenu = [
     { name: "Dashboard", path: "/admin-dashboard", icon: <FiHome /> },
-    { name: "Attendance", path: "/attendance", icon: <FiClock /> },
-    { name: "Face Enrollment", path: "/face-enrollment", icon: <FiUserPlus /> },
 
+    { section: "Attendance" },
+    { name: "Face Attendance", path: "/face-attendance", icon: <FiCamera /> },
+    { name: "Attendance Records", path: "/admin-attendance", icon: <FiClipboard /> },
+
+    { section: "Face Enrollment" },
+    { name: "Enroll Faces", path: "/face-enrollment", icon: <FiUserPlus /> },
+
+    { section: "Management" },
     { name: "Students", path: "/students", icon: <FiUsers /> },
     { name: "Teachers", path: "/teachers", icon: <FiUsers /> },
+
+    { section: "Academics" },
     { name: "Timetable", path: "/timetable", icon: <FiBookOpen /> },
 
+    { section: "AI" },
     { name: "AI Reports", path: "/ai-reports", icon: <FiPieChart /> },
-    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> }
+
+    { section: "Chat" },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
   ];
 
-  // ---------------------------
+  // -----------------------------
   // TEACHER MENU
-  // ---------------------------
+  // -----------------------------
   const teacherMenu = [
     { name: "Dashboard", path: "/teacher-dashboard", icon: <FiHome /> },
-    { name: "Attendance", path: "/attendance", icon: <FiClock /> },
+
+    { section: "Attendance" },
+    { name: "Face Attendance", path: "/face-attendance", icon: <FiCamera /> },
+    { name: "Attendance Records", path: "/teacher-attendance", icon: <FiClipboard /> },
+
+    { section: "Students" },
     { name: "Enroll Student", path: "/teacher-add-student", icon: <FiUserPlus /> },
-    { name: "Timetable", path: "/teacher-timetable", icon: <FiBookOpen /> },
-    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> }
+
+    { section: "Academics" },
+    { name: "My Timetable", path: "/teacher-timetable", icon: <FiBookOpen /> },
+
+    { section: "Chat" },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
   ];
 
-  // ---------------------------
+  // -----------------------------
   // STUDENT MENU
-  // ---------------------------
+  // -----------------------------
   const studentMenu = [
     { name: "Dashboard", path: "/student-dashboard", icon: <FiHome /> },
-    { name: "My Attendance", path: "/my-attendance", icon: <FiClock /> },
-    { name: "Timetable", path: "/student-timetable", icon: <FiBookOpen /> },
-    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> }
+
+    { section: "Attendance" },
+    { name: "Face Attendance", path: "/face-attendance", icon: <FiCamera /> },
+    { name: "My Attendance", path: "/student-my-attendance", icon: <FiClipboard /> },
+
+    { section: "Academics" },
+    { name: "My Timetable", path: "/student-timetable", icon: <FiBookOpen /> },
+
+    { section: "Chat" },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
   ];
-  
+
+  // -----------------------------
+  // PARENT MENU
+  // -----------------------------
+  const parentMenu = [
+    { name: "Dashboard", path: "/parent-dashboard", icon: <FiHome /> },
+    { name: "Performance", path: "/parent-performance", icon: <FiPieChart /> },
+    { name: "Chatbot", path: "/chatbot", icon: <FiMessageCircle /> },
+  ];
+
+  // Detect menu
   const menu =
     role === "admin"
       ? adminMenu
@@ -67,40 +105,51 @@ export default function Sidebar() {
       ? teacherMenu
       : role === "student"
       ? studentMenu
+      : role === "parent"
+      ? parentMenu
       : [];
 
   return (
     <aside
-      className={`bg-white h-screen shadow-md transition-all duration-300
+      className={`bg-white shadow-md transition-all duration-300 h-screen 
       ${collapsed ? "w-20" : "w-64"} hidden md:flex flex-col`}
     >
       {/* HEADER */}
       <div className="flex items-center justify-between p-4 border-b">
-        {!collapsed && <h2 className="text-xl font-semibold">Smart School</h2>}
-        <FiMenu className="cursor-pointer text-xl" onClick={toggleSidebar} />
+        {!collapsed && (
+          <h2 className="text-xl font-semibold text-gray-800">Smart School</h2>
+        )}
+        <FiMenu className="text-xl cursor-pointer" onClick={toggleSidebar} />
       </div>
 
       {/* MENU */}
-      <nav className="flex flex-col mt-4">
-        {menu.map((item) => {
-          const isActive = location.pathname === item.path;
-
-          return (
+      <nav className="flex flex-col mt-4 px-2">
+        {menu.map((item, idx) =>
+          item.section ? (
+            <div
+              key={idx}
+              className={`text-xs text-gray-500 uppercase mt-3 mb-1 ${
+                collapsed ? "hidden" : "block"
+              }`}
+            >
+              {item.section}
+            </div>
+          ) : (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 text-sm rounded-lg mx-2 mb-1
-                ${
-                  isActive
-                    ? "bg-blue-100 text-blue-600"
-                    : "hover:bg-gray-100 text-gray-700"
-                }`}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-1 cursor-pointer text-sm
+              ${
+                location.pathname === item.path
+                  ? "bg-blue-100 text-blue-600"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
             >
               <span className="text-lg">{item.icon}</span>
-              {!collapsed && item.name}
+              {!collapsed && <span>{item.name}</span>}
             </Link>
-          );
-        })}
+          )
+        )}
       </nav>
     </aside>
   );

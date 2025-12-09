@@ -1,61 +1,179 @@
-import { FiCamera, FiBookOpen, FiClock, FiFileText } from "react-icons/fi";
+// src/pages/Teacher/TeacherDashboard.jsx
+
+import React, { useEffect, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function TeacherDashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const API = "http://127.0.0.1:5000/api";
+
+  const [stats, setStats] = useState({
+    total_students: 0,
+    today_present: 0,
+    classes_today: 0,
+  });
+
+  const [recent, setRecent] = useState([]);
+
+  // Fetch Teacher Dashboard Stats
+  const loadStats = async () => {
+    try {
+      const res1 = await axios.get(`${API}/teachers/${user.id}/student-count`);
+      const res2 = await axios.get(`${API}/attendance/teacher/${user.id}/today`);
+      const res3 = await axios.get(`${API}/timetable/teacher/${user.id}/today`);
+
+      setStats({
+        total_students: res1.data.count || 0,
+        today_present: res2.data.present || 0,
+        classes_today: res3.data.count || 0,
+      });
+    } catch (err) {
+      console.error("Teacher stats error:", err);
+    }
+  };
+
+  // Fetch Latest Logs for Teacher
+  const loadRecent = async () => {
+    try {
+      const res = await axios.get(
+        `${API}/attendance-view/teacher/${user.id}?limit=5`
+      );
+      setRecent(res.data.data || []);
+    } catch (err) {
+      console.error("Teacher logs error:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+    loadRecent();
+  }, []);
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-6">Teacher Dashboard</h1>
+    <div className="p-4 md:p-6">
 
-      {/* Cards Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Header */}
+      <h1 className="text-2xl font-bold mb-4">Teacher Dashboard</h1>
 
-        {/* Mark Attendance */}
-        <div className="bg-white p-6 rounded-xl shadow flex flex-col items-center">
-          <FiCamera size={40} className="text-blue-600 mb-3" />
-          <h2 className="text-xl font-semibold">Mark Attendance</h2>
-          <p className="text-gray-600 text-center mt-2 mb-4">
-            Use face recognition to mark your attendance.
-          </p>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-            Start Camera
-          </button>
-        </div>
-
-        {/* Today's Classes */}
-        <div className="bg-white p-6 rounded-xl shadow">
-          <FiClock size={40} className="text-green-600 mb-3" />
-          <h2 className="text-xl font-semibold mb-2">Today's Classes</h2>
-
-          <ul className="text-gray-700">
-            <li>08:00 - 09:00 — Class 10A (Maths)</li>
-            <li>10:00 - 11:00 — Class 9A (Science)</li>
-            <li>12:00 - 01:00 — Class 8A (Maths)</li>
-          </ul>
-        </div>
-
-        {/* AI Tutor Status */}
-        <div className="bg-white p-6 rounded-xl shadow">
-          <FiBookOpen size={40} className="text-purple-600 mb-3" />
-          <h2 className="text-xl font-semibold mb-2">AI Tutor Status</h2>
-          <p className="text-gray-600">Your AI tutor is active for class 10A.</p>
-        </div>
-
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <SummaryCard title="My Students" count={stats.total_students} color="blue" />
+        <SummaryCard title="Present Today" count={stats.today_present} color="green" />
+        <SummaryCard title="Classes Today" count={stats.classes_today} color="purple" />
       </div>
 
-      {/* Notes Section */}
-      <div className="bg-white p-6 rounded-xl shadow mt-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Uploaded Notes</h2>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
-            <FiFileText /> Upload Notes
-          </button>
-        </div>
+      {/* Quick Actions */}
+      <h2 className="text-xl font-semibold mb-2">Quick Actions</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
-        <ul className="text-gray-700">
-          <li className="border-b py-2">• Chapter 1 - Algebra Notes.pdf</li>
-          <li className="border-b py-2">• Physics Practical Guide.docx</li>
-          <li className="border-b py-2">• Geometry Assignment 2.pdf</li>
-        </ul>
+        <ActionButton
+          label="Mark Attendance"
+          onClick={() => navigate("/teacher-attendance")}
+          color="blue"
+        />
+
+        <ActionButton
+          label="Enroll Student"
+          onClick={() => navigate("/teacher-add-student")}
+          color="green"
+        />
+
+        <ActionButton
+          label="My Timetable"
+          onClick={() => navigate("/teacher-timetable")}
+          color="purple"
+        />
+
+        <ActionButton
+          label="View Attendance"
+          onClick={() => navigate("/teacher-attendance-records")}
+          color="orange"
+        />
       </div>
+
+      {/* Recent Attendance Logs */}
+      <h2 className="text-xl font-semibold mb-3">Recent Attendance</h2>
+
+      <div className="bg-white shadow rounded p-4">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b">
+              <th className="py-2">Student</th>
+              <th className="py-2">Class</th>
+              <th className="py-2">Time</th>
+              <th className="py-2">Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {recent.length === 0 && (
+              <tr>
+                <td colSpan="4" className="py-4 text-center text-gray-500">
+                  No attendance logs yet
+                </td>
+              </tr>
+            )}
+
+            {recent.map((log, index) => (
+              <tr key={index} className="border-b hover:bg-gray-50">
+                <td className="py-2">{log.name}</td>
+                <td className="py-2">{log.class_name}</td>
+                <td className="py-2">{log.time}</td>
+                <td className="py-2">
+                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
+                    Present
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
     </div>
+  );
+}
+
+
+
+/* =======================
+   COMPONENTS
+======================= */
+
+function SummaryCard({ title, count, color }) {
+  const colors = {
+    blue: "bg-blue-100 text-blue-700",
+    green: "bg-green-100 text-green-700",
+    purple: "bg-purple-100 text-purple-700",
+    orange: "bg-orange-100 text-orange-700",
+  };
+
+  return (
+    <div className={`p-4 rounded shadow ${colors[color]}`}>
+      <h3 className="text-lg font-semibold">{title}</h3>
+      <p className="text-2xl font-bold">{count}</p>
+    </div>
+  );
+}
+
+function ActionButton({ label, onClick, color }) {
+  const colors = {
+    blue: "bg-blue-600 hover:bg-blue-700",
+    green: "bg-green-600 hover:bg-green-700",
+    purple: "bg-purple-600 hover:bg-purple-700",
+    orange: "bg-orange-600 hover:bg-orange-700",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full py-3 text-white rounded font-semibold ${colors[color]}`}
+    >
+      {label}
+    </button>
   );
 }

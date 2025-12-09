@@ -1,54 +1,40 @@
-// UPDATED CLEAN ROUTES – Smart School
-// ✔ Role selection login
-// ✔ Unified Attendance
-// ✔ Removed duplicate attendance pages
-
-import UniversalAttendance from "../Attendance/UniversalAttendance";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+// src/routes/AppRoutes.jsx
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "../context/AuthContext";
 import ProtectedRoute from "./ProtectedRoute";
 import AppLayout from "../components/layout/AppLayout";
 
 /* LOGIN */
-import RoleSelectionLogin from "../pages/Login/RoleSelectionLogin";
 import LoginPage from "../pages/Login/LoginPage";
 
+/* UNIVERSAL ATTENDANCE */
+import UniversalAttendance from "../pages/Attendance/UniversalAttendance";
+
 /* ADMIN */
-import FaceEnrollmentPage from "../pages/Admin/FaceEnrollmentPage";
 import AdminDashboard from "../pages/Admin/AdminDashboard";
+import FaceEnrollmentPage from "../pages/Admin/FaceEnrollmentPage";
 import StudentsPage from "../pages/Admin/StudentsPage";
 import AddStudent from "../pages/Admin/AddStudent";
 import EditStudent from "../pages/Admin/EditStudent";
-
 import TeachersPage from "../pages/Admin/TeachersPage";
 import AddTeacher from "../pages/Admin/AddTeacher";
 import EditTeacher from "../pages/Admin/EditTeacher";
-
 import TimetablePage from "../pages/Admin/TimetablePage";
 import AddTimetable from "../pages/Admin/AddTimetable";
 import EditTimetable from "../pages/Admin/EditTimetable";
-
-import StudentAttendance from "../pages/Admin/StudentAttendance";
-import StudentAttendanceView from "../pages/Admin/StudentAttendanceView";
-
-import FaceEnrollmentPage from "../pages/Admin/FaceEnrollmentPage";
-
+import AdminAttendancePage from "../pages/Admin/AdminAttendancePage";
 import AIReportsPage from "../pages/Admin/AIReportsPage";
 
-/* NEW UNIFIED ATTENDANCE */
-import UniversalAttendance from "../pages/Attendance/UniversalAttendance";
-
 /* TEACHER */
-import TeacherEnrollStudent from "../pages/Teacher/TeacherEnrollStudent";
 import TeacherDashboard from "../pages/Teacher/TeacherDashboard";
 import TeacherTimetable from "../pages/Teacher/TeacherTimetable";
-import AddStudentTeacher from "../pages/Teacher/AddStudentTeacher";
+import TeacherEnrollStudent from "../pages/Teacher/TeacherEnrollStudent";
+import TeacherAttendancePage from "../pages/Teacher/TeacherAttendancePage";
 
 /* STUDENT */
 import StudentDashboard from "../pages/Student/StudentDashboard";
 import StudentTimetable from "../pages/Student/StudentTimetable";
 import StudentAttendancePage from "../pages/Student/StudentAttendancePage";
-
 
 /* PARENT */
 import ParentDashboard from "../pages/Parent/ParentDashboard";
@@ -57,30 +43,30 @@ import ParentPerformance from "../pages/Parent/ParentPerformance";
 /* CHATBOT */
 import ChatbotPage from "../pages/Chatbot/ChatbotPage";
 
-const AppRoutes = () => {
+export default function AppRoutes() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
 
-          {/* LOGIN SYSTEM */}
-          <Route path="/" element={<RoleSelectionLogin />} />
-          <Route path="/login/:role" element={<LoginPage />} />
+          {/* DEFAULT REDIRECT */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginPage />} />
 
+          {/* UNIVERSAL ATTENDANCE */}
           <Route
-            path="/attendance"
+            path="/face-attendance"
             element={
               <ProtectedRoute>
-                <AppLayout>
-                  <UniversalAttendance />
-                </AppLayout>
+                <AppLayout><UniversalAttendance /></AppLayout>
               </ProtectedRoute>
-        }
+            }
           />
 
           {/* ---------------- ADMIN ROUTES ---------------- */}
+
           <Route
-            path="/admin-dashboard"
+            path="/admin/dashboard"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><AdminDashboard /></AppLayout>
@@ -89,26 +75,25 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/attendance"
+            path="/admin/attendance"
             element={
-              <ProtectedRoute allowedRoles={["admin", "teacher", "student"]}>
-                <AppLayout><UniversalAttendance /></AppLayout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AppLayout><AdminAttendancePage /></AppLayout>
               </ProtectedRoute>
             }
           />
 
           <Route
-            path="/face-enrollment"
+            path="/admin/face-enrollment"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><FaceEnrollmentPage /></AppLayout>
               </ProtectedRoute>
-         }
+            }
           />
 
-          {/* Students */}
           <Route
-            path="/students"
+            path="/admin/students"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><StudentsPage /></AppLayout>
@@ -117,19 +102,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/my-attendance"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <StudentAttendancePage />
-                </AppLayout>
-              </ProtectedRoute>
-             }
-          />
-
-
-          <Route
-            path="/add-student"
+            path="/admin/add-student"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><AddStudent /></AppLayout>
@@ -138,7 +111,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/edit-student/:id"
+            path="/admin/edit-student/:id"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><EditStudent /></AppLayout>
@@ -146,9 +119,8 @@ const AppRoutes = () => {
             }
           />
 
-          {/* Teachers */}
           <Route
-            path="/teachers"
+            path="/admin/teachers"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><TeachersPage /></AppLayout>
@@ -157,16 +129,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/teacher-add-student"
-            element={
-              <ProtectedRoute>
-                <AppLayout><TeacherEnrollStudent /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/add-teacher"
+            path="/admin/add-teacher"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><AddTeacher /></AppLayout>
@@ -175,7 +138,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/edit-teacher/:id"
+            path="/admin/edit-teacher/:id"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><EditTeacher /></AppLayout>
@@ -183,9 +146,8 @@ const AppRoutes = () => {
             }
           />
 
-          {/* Timetable */}
           <Route
-            path="/timetable"
+            path="/admin/timetable"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><TimetablePage /></AppLayout>
@@ -194,7 +156,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/add-timetable"
+            path="/admin/add-timetable"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><AddTimetable /></AppLayout>
@@ -203,7 +165,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/edit-timetable/:id"
+            path="/admin/edit-timetable/:id"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><EditTimetable /></AppLayout>
@@ -211,38 +173,8 @@ const AppRoutes = () => {
             }
           />
 
-          {/* Admin Attendance Records */}
           <Route
-            path="/student-attendance"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AppLayout><StudentAttendance /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/student-attendance-view"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AppLayout><StudentAttendanceView /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Face Enrollment */}
-          <Route
-            path="/face-enrollment"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AppLayout><FaceEnrollmentPage /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* AI Reports */}
-          <Route
-            path="/ai-reports"
+            path="/admin/ai-reports"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AppLayout><AIReportsPage /></AppLayout>
@@ -251,8 +183,9 @@ const AppRoutes = () => {
           />
 
           {/* ---------------- TEACHER ROUTES ---------------- */}
+
           <Route
-            path="/teacher-dashboard"
+            path="/teacher/dashboard"
             element={
               <ProtectedRoute allowedRoles={["teacher"]}>
                 <AppLayout><TeacherDashboard /></AppLayout>
@@ -261,7 +194,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/teacher-timetable"
+            path="/teacher/timetable"
             element={
               <ProtectedRoute allowedRoles={["teacher"]}>
                 <AppLayout><TeacherTimetable /></AppLayout>
@@ -269,19 +202,28 @@ const AppRoutes = () => {
             }
           />
 
-          {/* Teacher → Enroll Students */}
           <Route
-            path="/teacher-add-student"
+            path="/teacher/add-student"
             element={
               <ProtectedRoute allowedRoles={["teacher"]}>
-                <AppLayout><AddStudentTeacher /></AppLayout>
+                <AppLayout><TeacherEnrollStudent /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/teacher/attendance"
+            element={
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <AppLayout><TeacherAttendancePage /></AppLayout>
               </ProtectedRoute>
             }
           />
 
           {/* ---------------- STUDENT ROUTES ---------------- */}
+
           <Route
-            path="/student-dashboard"
+            path="/student/dashboard"
             element={
               <ProtectedRoute allowedRoles={["student"]}>
                 <AppLayout><StudentDashboard /></AppLayout>
@@ -290,7 +232,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/student-timetable"
+            path="/student/timetable"
             element={
               <ProtectedRoute allowedRoles={["student"]}>
                 <AppLayout><StudentTimetable /></AppLayout>
@@ -298,9 +240,19 @@ const AppRoutes = () => {
             }
           />
 
-          {/* ---------------- PARENT ROUTES ---------------- */}
           <Route
-            path="/parent-dashboard"
+            path="/student/my-attendance"
+            element={
+              <ProtectedRoute allowedRoles={["student"]}>
+                <AppLayout><StudentAttendancePage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ---------------- PARENT ROUTES ---------------- */}
+
+          <Route
+            path="/parent/dashboard"
             element={
               <ProtectedRoute allowedRoles={["parent"]}>
                 <AppLayout><ParentDashboard /></AppLayout>
@@ -309,7 +261,7 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="/parent-performance"
+            path="/parent/performance"
             element={
               <ProtectedRoute allowedRoles={["parent"]}>
                 <AppLayout><ParentPerformance /></AppLayout>
@@ -317,22 +269,21 @@ const AppRoutes = () => {
             }
           />
 
-          {/* ---------------- CHATBOT ---------------- */}
+          {/* CHATBOT (ALL ROLES) */}
           <Route
             path="/chatbot"
             element={
-              <ProtectedRoute allowedRoles={["admin", "teacher", "student", "parent"]}>
+              <ProtectedRoute>
                 <AppLayout><ChatbotPage /></AppLayout>
               </ProtectedRoute>
             }
           />
 
-          {/* DEFAULT → Login */}
-          <Route path="*" element={<RoleSelectionLogin />} />
+          {/* FALLBACK */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+
         </Routes>
       </AuthProvider>
     </BrowserRouter>
   );
-};
-
-export default AppRoutes;
+}

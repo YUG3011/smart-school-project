@@ -1,120 +1,87 @@
+# smart_school_backend/routes/teacher_attendance.py
+
 from flask import Blueprint, request, jsonify
-from datetime import datetime, date
-from smart_school_backend.utils.db import get_db
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from utils.db import get_db
+from datetime import datetime
 
-bp = Blueprint("teacher_attendance", __name__, url_prefix="/api/teacher-attendance")
+bp = Blueprint("teacher_attendance_bp", __name__)
 
-
-# --------------------------------------------
-# 1. MARK TEACHER ATTENDANCE (ONCE PER DAY)
-# --------------------------------------------
-@bp.route("/mark", methods=["POST"])
-def mark_attendance():
-    data = request.json
-    teacher_id = data.get("teacher_id")
-    status = data.get("status", "Present")
-
-    if not teacher_id:
-        return jsonify({"error": "teacher_id is required"}), 400
-
-    today = date.today().strftime("%Y-%m-%d")
-    marked_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+# Create table if missing
+def create_teacher_attendance_table():
     db = get_db()
-    cursor = db.cursor()
+    cur = db.cursor()
 
-    # Check if teacher exists
-    cursor.execute("SELECT id FROM teachers WHERE id = ?", (teacher_id,))
-    teacher = cursor.fetchone()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS teacher_attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            time TEXT NOT NULL,
+            status TEXT NOT NULL
+        )
+    """)
 
-    if not teacher:
-        return jsonify({"error": "Teacher not found"}), 404
-
-    # Check if already marked for today
-    cursor.execute("""
-        SELECT id FROM teacher_attendance 
-        WHERE teacher_id = ? AND date = ?
-    """, (teacher_id, today))
-    exists = cursor.fetchone()
-
-    if exists:
-        return jsonify({"error": "Attendance already marked today"}), 400
-
-    # Insert attendance
-    cursor.execute("""
-        INSERT INTO teacher_attendance (teacher_id, date, status, marked_at)
-        VALUES (?, ?, ?, ?)
-    """, (teacher_id, today, status, marked_at))
     db.commit()
 
-    return jsonify({
-        "success": True,
-        "message": "Attendance marked successfully",
-        "data": {
-            "teacher_id": teacher_id,
-            "date": today,
-            "status": status,
-            "marked_at": marked_at
-        }
-    }), 201
 
+@bp.route("/mark", methods=["POST"])
+@jwt_required()
+def mark_teacher_attendance():
+    identity = get_jwt_identity()
 
-# --------------------------------------------
-# 2. GET TODAY'S ATTENDANCE FOR A TEACHER
-# --------------------------------------------
-@bp.route("/today/<int:teacher_id>", methods=["GET"])
-def get_today_attendance(teacher_id):
-    today = date.today().strftime("%Y-%m-%d")
+    if identity["role"] != "teacher":
+        return jsonify({"error": "Only teachers can mark attendance"}), 403
+
+    teacher_id = identity["id"]
+    today = datetime.now().strftime("%Y-%m-%d")
 
     db = get_db()
-    cursor = db.cursor()
+    cur = db.cursor()
 
-    cursor.execute("""
-        SELECT * FROM teacher_attendance 
-        WHERE teacher_id = ? AND date = ?
-    """, (teacher_id, today))
+    # Check if attendance already exists
+    cur.execute(
+        "SELECT id FROM teacher_attendance WHERE teacher_id=? AND date=?",
+        (teacher_id, today),
+    )
+    exists = cur.fetchone()
 
-    record = cursor.fetchone()
+    if exists:
+        return jsonify({"message": "Attendance already marked for today"}), 400
 
-    if not record:
-        return jsonify({"message": "No attendance marked today"}), 404
+    cur.execute("""
+        INSERT INTO teacher_attendance (teacher_id, date, time, status)
+        VALUES (?, ?, ?, ?)
+    """, (
+        teacher_id,
+        today,
+        datetime.now().strftime("%H:%M:%S"),
+        "Present"
+    ))
 
-    return jsonify({
-        "success": True,
-        "attendance": {
-            "id": record["id"],
-            "teacher_id": record["teacher_id"],
-            "date": record["date"],
-            "status": record["status"],
-            "marked_at": record["marked_at"]
-        }
-    })
+    db.commit()
+
+    return jsonify({"message": "Attendance marked successfully"}), 200
 
 
-# --------------------------------------------
-# 3. FULL ATTENDANCE HISTORY
-# --------------------------------------------
-@bp.route("/history/<int:teacher_id>", methods=["GET"])
-def attendance_history(teacher_id):
+@bp.route("/records", methods=["GET"])
+@jwt_required()
+def get_teacher_attendance_records():
+    identity = get_jwt_identity()
+    teacher_id = identity["id"]
+
     db = get_db()
-    cursor = db.cursor()
+    cur = db.cursor()
 
-    cursor.execute("""
-        SELECT * FROM teacher_attendance 
-        WHERE teacher_id = ? ORDER BY date DESC
+    cur.execute("""
+        SELECT date, time, status
+        FROM teacher_attendance
+        WHERE teacher_id=?
+        ORDER BY date DESC
     """, (teacher_id,))
 
-    rows = cursor.fetchall()
+    rows = cur.fetchall()
 
-    return jsonify({
-        "success": True,
-        "history": [
-            {
-                "id": r["id"],
-                "date": r["date"],
-                "status": r["status"],
-                "marked_at": r["marked_at"]
-            }
-            for r in rows
-        ]
-    })
+    records = [dict(row) for row in rows]
+
+    return jsonify(records), 200

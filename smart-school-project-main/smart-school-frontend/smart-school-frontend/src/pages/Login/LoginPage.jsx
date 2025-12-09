@@ -1,128 +1,151 @@
 // src/pages/Login/LoginPage.jsx
 
-import { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useState } from "react";
+import { loginUser } from "../../services/api";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
-const API_URL = "http://127.0.0.1:5000/api";
-
-const LoginPage = () => {
-  const { login, selectedRole } = useAuth();
-  const navigate = useNavigate();
-
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
-
+export default function LoginPage() {
+  const [role, setRole] = useState("admin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // If no role selected → redirect to /role
-  useEffect(() => {
-    if (!selectedRole) {
-      navigate("/role");
-    }
-  }, [selectedRole, navigate]);
+  const navigate = useNavigate();
 
-
-  // Handle input change
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-
-  // LOGIN SUBMIT HANDLER
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     setError("");
 
-    if (!selectedRole) {
-      setError("Please select a role before logging in");
-      navigate("/role");
+    if (!email || !password) {
+      setError("All fields are required");
       return;
     }
 
     try {
-      // Correct endpoint based on selectedRole
-      const endpoint = `${API_URL}/auth/login/${selectedRole}`;
+      console.log("Sending login:", { email, password, role });
 
-      const res = await axios.post(endpoint, form);
-      const token = res.data.token;
-      const user = res.data.user; // backend must return { name, email, role }
+      const response = await loginUser({
+        email,
+        password,
+        role,
+      });
 
-      if (!token || !user) {
-        setError("Invalid response from server");
-        return;
-      }
+      const token = response.data.token;
 
-      // Save user & token into AuthContext
-      login(user, token);
+      localStorage.setItem("token", token);
+      localStorage.setItem("role", role);
+      localStorage.setItem("email", email);
 
       // Redirect based on role
-      switch (user.role) {
-        case "admin":
-          navigate("/admin-dashboard");
-          break;
-        case "teacher":
-          navigate("/teacher-dashboard");
-          break;
-        case "student":
-          navigate("/student-dashboard");
-          break;
-        default:
-          navigate("/");
-      }
+      if (role === "admin") navigate("/admin/dashboard");
+      else if (role === "teacher") navigate("/teacher/dashboard");
+      else navigate("/student/dashboard");
 
     } catch (err) {
-      console.error("Login error:", err);
-      setError("Invalid email or password");
+      console.error("Login failed:", err);
+      if (err.response && err.response.status === 401) {
+        setError("Invalid email or password");
+      } else {
+        setError("Server error. Try again later.");
+      }
     }
   };
 
-
-  // RENDER UI
   return (
-    <div className="login-container w-full h-screen flex justify-center items-center bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded shadow-md w-96"
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        background: "#eef2f7",
+      }}
+    >
+      <div
+        style={{
+          width: "360px",
+          padding: "30px",
+          background: "white",
+          borderRadius: "12px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        }}
       >
-        <h2 className="text-2xl font-semibold mb-6 text-center">
-          Login as {selectedRole ? selectedRole.toUpperCase() : ""}
+        <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
+          Smart School Login
         </h2>
 
-        {error && <p className="text-red-500 text-center mb-3">{error}</p>}
+        {error && (
+          <p
+            style={{
+              color: "red",
+              textAlign: "center",
+              marginBottom: "10px",
+              fontSize: "14px",
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px",
+            marginBottom: "12px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+          }}
+        >
+          <option value="admin">Admin</option>
+          <option value="teacher">Teacher</option>
+          <option value="student">Student</option>
+        </select>
 
         <input
-          name="email"
           type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          className="w-full border px-3 py-2 mb-3 rounded"
-          required
+          placeholder="Email address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px",
+            marginBottom: "12px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+          }}
         />
 
         <input
-          name="password"
           type="password"
           placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          className="w-full border px-3 py-2 mb-3 rounded"
-          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px",
+            marginBottom: "15px",
+            borderRadius: "8px",
+            border: "1px solid #ccc",
+          }}
         />
 
         <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded mt-4 hover:bg-blue-700"
+          onClick={handleLogin}
+          style={{
+            width: "100%",
+            padding: "12px",
+            background: "#2563eb",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            fontSize: "16px",
+            cursor: "pointer",
+          }}
         >
           Login
         </button>
-      </form>
+      </div>
     </div>
   );
-};
-
-export default LoginPage;
+}

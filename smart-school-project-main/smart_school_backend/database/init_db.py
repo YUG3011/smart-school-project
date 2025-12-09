@@ -1,46 +1,97 @@
-# database/init_db.py
+import sqlite3
+import os
 
-import os, sys
+# Correct database path
+DB_DIR = "database"
+DB_PATH = os.path.join(DB_DIR, "smart_school.db")
 
-# Ensure project root is in Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+# Ensure folder exists
+os.makedirs(DB_DIR, exist_ok=True)
 
-from smart_school_backend.app import app
-from smart_school_backend.models.student import create_student_table
-from smart_school_backend.models.teacher import create_teacher_table
-from smart_school_backend.models.timetable import create_timetable_table
-from smart_school_backend.models.teacher_attendance import create_teacher_attendance_table
-from smart_school_backend.models.user import create_user_table
 
-DB_PATH = "school.db"
+def init_db():
+    print("📌 Initializing Smart School Database")
 
-def initialize_database():
-    print("Initializing database (v2)...")
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
 
-    # Create the DB file if missing
-    if not os.path.exists(DB_PATH):
-        open(DB_PATH, "w").close()
+    # USERS TABLE
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL
+    )
+    """)
 
-    # Run inside Flask application context
-    with app.app_context():
-        print("... app context entered.")
-        create_user_table()
-        print("✔ Users table ready.")
-        
-        create_student_table()
-        print("✔ Students table ready.")
+    # STUDENTS TABLE
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        email TEXT,
+        class_name TEXT,
+        section TEXT
+    )
+    """)
 
-        create_teacher_table()
-        print("✔ Teachers table ready.")
+    # TEACHERS TABLE
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS teachers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        email TEXT,
+        subject TEXT
+    )
+    """)
 
-        create_timetable_table()
-        print("✔ Timetable table ready.")
+    # FACE EMBEDDINGS
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS face_embeddings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        person_id INTEGER,
+        role TEXT,
+        embedding BLOB
+    )
+    """)
 
-        create_teacher_attendance_table()
-        print("✔ Teacher Attendance table ready.")
+    # STUDENT ATTENDANCE
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS student_attendance (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER,
+        date TEXT,
+        status TEXT
+    )
+    """)
 
-    print("Database setup completed successfully (v2).")
+    # TEACHER ATTENDANCE
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS teacher_attendance (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        teacher_id INTEGER,
+        date TEXT,
+        status TEXT
+    )
+    """)
+
+    print("✔ All tables created successfully.")
+
+    # DEFAULT ADMIN USER
+    cur.execute("""
+        INSERT OR IGNORE INTO users (name, email, password, role)
+        VALUES ('Admin', 'admin@school.com', 'admin123', 'admin')
+    """)
+
+    print("✔ Default admin created: admin@school.com / admin123")
+
+    conn.commit()
+    conn.close()
+
+    print("🎉 Database setup completed successfully!")
 
 
 if __name__ == "__main__":
-    initialize_database()
+    init_db()

@@ -1,42 +1,50 @@
-# routes/auth.py
 from flask import Blueprint, request, jsonify
-from smart_school_backend.utils.jwt_manager import create_access_token
-from smart_school_backend.utils.db import get_db
-import bcrypt
+from werkzeug.security import check_password_hash
+from models.user import get_user_by_email
+from flask_jwt_extended import create_access_token
 
-bp = Blueprint("auth", __name__)
+bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
-# ------------------------------
-# LOGIN ROUTE
-# ------------------------------
+
 @bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
+
     email = data.get("email")
     password = data.get("password")
+    role = data.get("role")
 
-    db = get_db()
-    cursor = db.cursor()
+    if not email or not password or not role:
+        return jsonify({"error": "Missing fields"}), 400
 
-    # Check if user exists
-    cursor.execute("SELECT id, email, password, role FROM users WHERE email = ?", (email,))
-    user = cursor.fetchone()
+    # Get user from DB
+    user = get_user_by_email(email)
 
     if not user:
         return jsonify({"error": "Invalid email or password"}), 401
 
-    stored_hash = user["password"]
+    # Verify role
+    if user["role"] != role:
+        return jsonify({"error": "Incorrect role"}), 401
 
-    # Check password using bcrypt
-    if not bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
-        return jsonify({"error": "Invalid email or password"}), 401
+    # Verify password
+    try:
+        if not check_password_hash(user["password"], password):
+            return jsonify({"error": "Invalid email or password"}), 401
+    except Exception as e:
+        return jsonify({"error": "Password hash error", "details": str(e)}), 500
 
-    # Create JWT token and convert role to lowercase
-    role_lowercase = user["role"].lower()
-    token = create_access_token(identity={"id": user["id"], "role": role_lowercase})
+    # Generate token
+    token = create_access_token(identity={
+        "id": user["id"],
+        "email": user["email"],
+        "role": user["role"]
+    })
 
     return jsonify({
         "message": "Login successful",
         "token": token,
-        "role": role_lowercase
+        "role": user["role"],
+        "id": user["id"],
+        "email": user["email"]
     }), 200

@@ -3,97 +3,46 @@ import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
+export function AuthProvider({ children }) {
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
+  const [user, setUser] = useState(
+    localStorage.getItem("user")
+      ? JSON.parse(localStorage.getItem("user"))
+      : null
+  );
 
-  // NEW — This stores the role selected on /role page
-  const [selectedRole, setSelectedRole] = useState(null);
-
-  // Load user/token from localStorage when app loads
+  // Restore login on refresh
   useEffect(() => {
-    try {
-      const savedToken = localStorage.getItem("token");
-      const savedUser = localStorage.getItem("user");
+    const t = localStorage.getItem("token");
+    const u = localStorage.getItem("user");
 
-      if (
-        savedToken &&
-        savedUser &&
-        savedUser !== "undefined" &&
-        savedUser !== "null"
-      ) {
-        const parsedUser = JSON.parse(savedUser);
-        setToken(savedToken);
-        setUser(parsedUser);
-      } else {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-      }
-    } catch (err) {
-      console.error("Auth parsing error:", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+    if (t && u) {
+      setToken(t);
+      setUser(JSON.parse(u));
     }
-
-    setLoading(false);
   }, []);
 
-  // Login function
-  const login = (userData, tokenValue) => {
-    setUser(userData);
-    setToken(tokenValue);
-
-    localStorage.setItem("token", tokenValue);
+  // LOGIN FUNCTION
+  const login = (token, userData) => {
+    localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
-
-    // Save role for reloading dashboard after refresh
-    if (userData?.role) {
-      localStorage.setItem("selectedRole", userData.role);
-      setSelectedRole(userData.role);
-    }
+    setToken(token);
+    setUser(userData);
   };
 
-  // Logout
+  // LOGOUT FUNCTION
   const logout = () => {
-    setUser(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setToken(null);
-    setSelectedRole(null);
-
-    localStorage.clear();
-    window.location.href = "/login";
+    setUser(null);
   };
-
-  // Persist selectedRole (in case of page reload)
-  useEffect(() => {
-    const savedRole = localStorage.getItem("selectedRole");
-    if (savedRole) setSelectedRole(savedRole);
-  }, []);
-
-  // Save role when changed
-  useEffect(() => {
-    if (selectedRole) {
-      localStorage.setItem("selectedRole", selectedRole);
-    }
-  }, [selectedRole]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        loading,
-        login,
-        logout,
-
-        // NEW → Role Selection
-        selectedRole,
-        setSelectedRole,
-      }}
-    >
+    <AuthContext.Provider value={{ token, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuth = () => useContext(AuthContext);

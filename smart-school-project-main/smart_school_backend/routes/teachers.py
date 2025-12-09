@@ -1,54 +1,143 @@
-from flask import Blueprint, request, jsonify
+# smart_school_backend/routes/teachers.py
+
+from flask import Blueprint, request, jsonify, current_app
+
+try:
+    from smart_school_backend.utils.db import get_db
+except ImportError:
+    from utils.db import get_db
+
 from flask_jwt_extended import jwt_required
-from smart_school_backend.utils.db import get_db
 
 bp = Blueprint("teachers", __name__)
 
+
+def row_to_teacher(row):
+    return {
+        "id": row[0],
+        "name": row[1],
+        "email": row[2],
+        "subject": row[3] if len(row) > 3 else None,
+    }
+
+
 @bp.route("/", methods=["GET"])
 @jwt_required()
-def get_teachers():
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM teachers").fetchall()
-    teachers = [dict(row) for row in rows]
-    return jsonify({"teachers": teachers, "total": len(teachers)}), 200
+def list_teachers():
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        "SELECT id, name, email, subject FROM teachers ORDER BY name"
+    )
+    rows = cur.fetchall()
+    return jsonify({"teachers": [row_to_teacher(r) for r in rows]}), 200
 
-@bp.route("/<int:id>", methods=["GET"])
-@jwt_required()
-def get_teacher_by_id(id):
-    conn = get_db()
-    row = conn.execute("SELECT * FROM teachers WHERE id=?", (id,)).fetchone()
-    if not row:
-        return jsonify({"error": "Teacher not found"}), 404
-    return jsonify({"teacher": dict(row)}), 200
 
 @bp.route("/", methods=["POST"])
 @jwt_required()
-def add_teacher():
-    data = request.json
-    conn = get_db()
-    conn.execute(
+def create_teacher():
+    data = request.get_json() or {}
+    name = data.get("name")
+    email = data.get("email")
+    subject = data.get("subject")
+
+    if not name or not email:
+        return jsonify({"error": "name and email are required"}), 400
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
         "INSERT INTO teachers (name, email, subject) VALUES (?, ?, ?)",
-        (data["name"], data["email"], data["subject"])
+        (name, email, subject),
     )
-    conn.commit()
-    return jsonify({"message": "Teacher added"}), 201
+    db.commit()
+    teacher_id = cur.lastrowid
 
-@bp.route("/<id>", methods=["PUT"])
-@jwt_required()
-def update_teacher(id):
-    data = request.json
-    conn = get_db()
-    conn.execute(
-        "UPDATE teachers SET name=?, email=?, subject=? WHERE id=?",
-        (data["name"], data["email"], data["subject"], id),
+    return (
+        jsonify(
+            {
+                "id": teacher_id,
+                "name": name,
+                "email": email,
+                "subject": subject,
+            }
+        ),
+        201,
     )
-    conn.commit()
-    return jsonify({"message": "Updated"}), 200
 
-@bp.route("/<id>", methods=["DELETE"])
+
+@bp.route("/<int:teacher_id>", methods=["GET"])
 @jwt_required()
-def delete_teacher(id):
-    conn = get_db()
-    conn.execute("DELETE FROM teachers WHERE id=?", (id,))
-    conn.commit()
-    return jsonify({"message": "Deleted"}), 200
+def get_teacher(teacher_id):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        "SELECT id, name, email, subject FROM teachers WHERE id=?",
+        (teacher_id,),
+    )
+    row = cur.fetchone()
+    if not row:
+        return jsonify({"error": "Teacher not found"}), 404
+    return jsonify(row_to_teacher(row)), 200
+
+
+@bp.route("/<int:teacher_id>", methods=["PUT"])
+@jwt_required()
+def update_teacher(teacher_id):
+    data = request.get_json() or {}
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT id FROM teachers WHERE id=?", (teacher_id,))
+    if not cur.fetchone():
+        return jsonify({"error": "Teacher not found"}), 404
+
+    fields, values = [], []
+    for key in ("name", "email", "subject"):
+        if key in data:
+            fields.append(f"{key}=?")
+            values.append(data[key])
+
+    if fields:
+        values.append(teacher_id)
+        cur.execute(
+            f"UPDATE teachers SET {', '.join(fields)} WHERE id=?",
+            tuple(values),
+        )
+        db.commit()
+
+    return jsonify({"message": "Teacher updated"}), 200
+
+
+@bp.route("/<int:teacher_id>", methods=["DELETE"])
+@jwt_required()
+def delete_teacher(teacher_id):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("DELETE FROM teachers WHERE id=?", (teacher_id,))
+    db.commit()
+    return jsonify({"message": "Teacher deleted"}), 200
+
+
+# -------------------------------------------------------------------
+# ADMIN DASHBOARD → TEACHER COUNT
+# -------------------------------------------------------------------
+
+@bp.route("/count", methods=["GET"])
+@jwt_required()
+def teachers_count():
+    """
+    Used by Admin Dashboard card "Teachers".
+    GET /api/teachers/count  →  { "count": 0 }
+    """
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute("SELECT COUNT(*) FROM teachers")
+        count = cur.fetchone()[0] or 0
+    except Exception as e:
+        current_app.logger.warning("teachers_count failed: %s", e)
+        count = 0
+
+    return jsonify({"count": count}), 200

@@ -1,151 +1,90 @@
-# routes/timetable.py
+# smart_school_backend/routes/timetable.py
 
 from flask import Blueprint, request, jsonify
-from smart_school_backend.utils.db import get_db
+from utils.db import get_db
 from flask_jwt_extended import jwt_required
 
-bp = Blueprint("timetable", __name__, url_prefix="/timetable")
+bp = Blueprint("timetable", __name__)
 
-# -------------------------
-# GET ALL TIMETABLE ENTRIES
-# -------------------------
-@bp.route("/", methods=["GET"])
+# ------------------------------
+# Get Timetable of a Class
+# ------------------------------
+@bp.route("/<class_name>/<section>", methods=["GET"])
 @jwt_required()
-def get_all():
-    conn = get_db()
-    rows = conn.execute("""
-        SELECT t.id, t.class_name, t.subject, t.teacher, t.day, t.time, te.name as teacher_name
-        FROM timetable t
-        LEFT JOIN teachers te ON t.teacher = te.id
-    """).fetchall()
+def get_timetable(class_name, section):
+    db = get_db()
+    cursor = db.cursor()
 
-    data = [
+    cursor.execute(
+        "SELECT id, class_name, section, subject, teacher_name, day, start_time, end_time "
+        "FROM timetable WHERE class_name = ? AND section = ?",
+        (class_name, section),
+    )
+    rows = cursor.fetchall()
+
+    timetable = [
         {
-            "id": row["id"],
-            "class_name": row["class_name"],
-            "subject": row["subject"],
-            "teacher_id": row["teacher"],
-            "teacher_name": row["teacher_name"],
-            "day": row["day"],
-            "time": row["time"]
+            "id": r[0],
+            "class_name": r[1],
+            "section": r[2],
+            "subject": r[3],
+            "teacher_name": r[4],
+            "day": r[5],
+            "start_time": r[6],
+            "end_time": r[7],
         }
-        for row in rows
+        for r in rows
     ]
 
-    return jsonify({"timetable": data, "total": len(data)}), 200
+    return jsonify({"timetable": timetable}), 200
 
 
-# -------------------------
-# GET TIMETABLE ENTRY BY ID
-# -------------------------
-@bp.route("/<int:id>", methods=["GET"])
-@jwt_required()
-def get_timetable_by_id(id):
-    conn = get_db()
-    row = conn.execute("""
-        SELECT t.id, t.class_name, t.subject, t.teacher, t.day, t.time, te.name as teacher_name
-        FROM timetable t
-        LEFT JOIN teachers te ON t.teacher = te.id
-        WHERE t.id = ?
-    """, (id,)).fetchone()
-
-    if not row:
-        return jsonify({"error": "Timetable entry not found"}), 404
-
-    data = {
-        "id": row["id"],
-        "class_name": row["class_name"],
-        "subject": row["subject"],
-        "teacher_id": row["teacher"],
-        "teacher_name": row["teacher_name"],
-        "day": row["day"],
-        "time": row["time"]
-    }
-
-    return jsonify({"timetable": data}), 200
-
-
-# -------------------------
-# ADD TIMETABLE ENTRY
-# -------------------------
+# ------------------------------
+# Add Timetable Entry
+# ------------------------------
 @bp.route("/", methods=["POST"])
 @jwt_required()
-def add():
+def add_timetable():
     data = request.json
 
-    class_name = data.get("class_name")
-    subject = data.get("subject")
-    teacher = data.get("teacher")
-    day = data.get("day")
-    time = data.get("time")
+    required = ["class_name", "section", "subject", "teacher_name", "day", "start_time", "end_time"]
 
-    if not all([class_name, subject, teacher, day, time]):
-        return jsonify({"error": "All fields required"}), 400
+    if not all(k in data and data[k] for k in required):
+        return jsonify({"error": "All fields are required"}), 400
 
-    conn = get_db()
-    conn.execute(
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute(
         """
-        INSERT INTO timetable (class_name, subject, teacher, day, time)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (class_name, subject, teacher, day, time),
-    )
-    conn.commit()
-
-    return jsonify({"message": "Timetable entry added"}), 201
-
-
-# -------------------------
-# UPDATE TIMETABLE ENTRY
-# -------------------------
-@bp.route("/<int:id>", methods=["PUT"])
-@jwt_required()
-def update(id):
-    data = request.json
-
-    conn = get_db()
-    entry = conn.execute(
-        "SELECT id FROM timetable WHERE id=?", (id,)
-    ).fetchone()
-
-    if not entry:
-        return jsonify({"error": "Entry not found"}), 404
-
-    conn.execute(
-        """
-        UPDATE timetable
-        SET class_name=?, subject=?, teacher=?, day=?, time=?
-        WHERE id=?
+        INSERT INTO timetable (class_name, section, subject, teacher_name, day, start_time, end_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            data.get("class_name"),
-            data.get("subject"),
-            data.get("teacher"),
-            data.get("day"),
-            data.get("time"),
-            id,
+            data["class_name"],
+            data["section"],
+            data["subject"],
+            data["teacher_name"],
+            data["day"],
+            data["start_time"],
+            data["end_time"],
         ),
     )
-    conn.commit()
 
-    return jsonify({"message": "Timetable updated"}), 200
+    db.commit()
+    return jsonify({"message": "Timetable entry added successfully"}), 201
 
 
-# -------------------------
-# DELETE TIMETABLE ENTRY
-# -------------------------
-@bp.route("/<int:id>", methods=["DELETE"])
+# ------------------------------
+# Delete a timetable entry
+# ------------------------------
+@bp.route("/<int:entry_id>", methods=["DELETE"])
 @jwt_required()
-def delete(id):
-    conn = get_db()
-    entry = conn.execute(
-        "SELECT id FROM timetable WHERE id=?", (id,)
-    ).fetchone()
+def delete_timetable_entry(entry_id):
+    db = get_db()
+    cursor = db.cursor()
 
-    if not entry:
-        return jsonify({"error": "Entry not found"}), 404
+    cursor.execute("DELETE FROM timetable WHERE id = ?", (entry_id,))
+    db.commit()
 
-    conn.execute("DELETE FROM timetable WHERE id=?", (id,))
-    conn.commit()
-
-    return jsonify({"message": "Timetable deleted"}), 200
+    return jsonify({"message": "Timetable entry removed successfully"}), 200
