@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useAuth } from "../../context/AuthContext";
+import API from "../../services/api";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { token } = useAuth();
 
-  const API = "http://127.0.0.1:5000/api";
   const [stats, setStats] = useState({
     students: 0,
     teachers: 0,
@@ -20,10 +21,10 @@ export default function AdminDashboard() {
   // Fetch Dashboard Summary
   const loadStats = async () => {
     try {
-      const s = await axios.get(`${API}/students/count`);
-      const t = await axios.get(`${API}/teachers/count`);
-      const a = await axios.get(`${API}/attendance/today`);
-      const c = await axios.get(`${API}/students/class-count`);
+      const s = await API.get(`/students/count`);
+      const t = await API.get(`/teachers/count`);
+      const a = await API.get(`/attendance/today`);
+      const c = await API.get(`/students/class-count`);
 
       setStats({
         students: s.data.count || 0,
@@ -39,7 +40,7 @@ export default function AdminDashboard() {
   // Fetch recent logs
   const loadRecent = async () => {
     try {
-      const r = await axios.get(`${API}/attendance-view/all?limit=5`);
+      const r = await API.get(`/attendance-view/all?limit=5`);
       setRecent(r.data.data || []);
     } catch (err) {
       console.error("Recent logs error:", err);
@@ -47,9 +48,14 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    loadStats();
-    loadRecent();
-  }, []);
+    if (token) {
+      console.log("✓ Token available, loading stats...");
+      loadStats();
+      loadRecent();
+    } else {
+      console.log("✗ No token, waiting for authentication...");
+    }
+  }, [token]);
 
   return (
     <div className="p-4 md:p-6">
@@ -71,25 +77,25 @@ export default function AdminDashboard() {
 
         <ActionButton
           label="Mark Attendance"
-          onClick={() => navigate("/attendance")}
+          onClick={() => navigate("/admin/attendance")}
           color="blue"
         />
 
         <ActionButton
           label="Enroll Faces"
-          onClick={() => navigate("/face-enrollment")}
+          onClick={() => navigate("/admin/face-enrollment")}
           color="green"
         />
 
         <ActionButton
           label="View Records"
-          onClick={() => navigate("/admin-attendance")}
+          onClick={() => navigate("/admin/attendance")}
           color="purple"
         />
 
         <ActionButton
           label="Add Student"
-          onClick={() => navigate("/students")}
+          onClick={() => navigate("/admin/students")}
           color="orange"
         />
 

@@ -1,9 +1,9 @@
 # smart_school_backend/routes/teacher_attendance.py
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.db import get_db
-from datetime import datetime
+from datetime import datetime, date as date_module
 
 bp = Blueprint("teacher_attendance_bp", __name__)
 
@@ -85,3 +85,33 @@ def get_teacher_attendance_records():
     records = [dict(row) for row in rows]
 
     return jsonify(records), 200
+
+
+# -------------------------------------------------------------------
+# TEACHER DASHBOARD → TODAY'S ATTENDANCE COUNT
+# -------------------------------------------------------------------
+@bp.route("/<int:teacher_id>/today", methods=["GET"])
+@jwt_required()
+def teacher_attendance_count_today(teacher_id):
+    """
+    Get count of students marked present today (from student_attendance table).
+    GET /api/attendance/teacher/{id}/today
+
+    Returns: { "present": 5 }
+    """
+    today = date_module.today().strftime("%Y-%m-%d")
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute(
+            "SELECT COUNT(*) FROM student_attendance WHERE date = ? AND status = 'present'",
+            (today,),
+        )
+        present = cur.fetchone()[0] or 0
+    except Exception as e:
+        current_app.logger.warning("teacher_attendance_count_today failed: %s", e)
+        present = 0
+
+    return jsonify({"present": present}), 200
+

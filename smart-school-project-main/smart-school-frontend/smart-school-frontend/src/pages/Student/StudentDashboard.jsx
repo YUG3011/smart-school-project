@@ -1,15 +1,13 @@
 // src/pages/Student/StudentDashboard.jsx
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import API from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function StudentDashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
-
-  const API = "http://127.0.0.1:5000/api";
 
   const [stats, setStats] = useState({
     total_days: 0,
@@ -23,8 +21,8 @@ export default function StudentDashboard() {
   // Load student statistics
   const loadStats = async () => {
     try {
-      const res1 = await axios.get(`${API}/student-attendance/${user.id}/stats`);
-      const res2 = await axios.get(`${API}/student-attendance/${user.id}/today`);
+      const res1 = await API.get(`/student-attendance/${user.id}/stats`);
+      const res2 = await API.get(`/student-attendance/${user.id}/today`);
 
       setStats({
         total_days: res1.data.total_days || 0,
@@ -40,8 +38,8 @@ export default function StudentDashboard() {
   // Load recent attendance history
   const loadRecent = async () => {
     try {
-      const logs = await axios.get(
-        `${API}/student-attendance/${user.id}/logs?limit=5`
+      const logs = await API.get(
+        `/student-attendance/${user.id}/logs?limit=5`
       );
       setRecent(logs.data.data || []);
     } catch (err) {
@@ -50,9 +48,11 @@ export default function StudentDashboard() {
   };
 
   useEffect(() => {
-    loadStats();
-    loadRecent();
-  }, []);
+    if (token) {
+      loadStats();
+      loadRecent();
+    }
+  }, [user, token]);
 
   return (
     <div className="p-4 md:p-6">

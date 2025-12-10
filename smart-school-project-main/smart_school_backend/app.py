@@ -92,10 +92,23 @@ from flask_jwt_extended import JWTManager
 
 jwt = JWTManager(app)
 
+# JWT Error Handlers
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    return {"error": "Token has expired"}, 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(error):
+    return {"error": f"Invalid token: {error}"}, 401
+
+@jwt.unauthorized_loader
+def missing_token_callback(error):
+    return {"error": "Token is missing or invalid. Please login first."}, 401
+
 # =====================================================================
-# 7. CORS ENABLED
+# 7. CORS ENABLED WITH AUTHORIZATION HEADER SUPPORT
 # =====================================================================
-CORS(app)
+CORS(app, supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
 
 # =====================================================================
 # 8. ERROR HANDLERS
@@ -140,6 +153,21 @@ app.register_blueprint(chatbot_bp, url_prefix="/api/chatbot")
 @app.route("/")
 def home():
     return {"status": "ok", "message": "Smart School Backend Running"}, 200
+
+# =====================================================================
+# 10. DEBUG: TEST TOKEN PRESENCE
+# =====================================================================
+from flask import request
+from flask_jwt_extended import get_jwt_identity
+
+@app.route("/api/debug/token-check", methods=["GET"])
+def token_check():
+    """Debug endpoint to check if Authorization header is present"""
+    auth_header = request.headers.get("Authorization", "NOT PRESENT")
+    return {
+        "auth_header": auth_header,
+        "all_headers": dict(request.headers)
+    }, 200
 
 # =====================================================================
 # 11. CLOSE DB AFTER EACH REQUEST

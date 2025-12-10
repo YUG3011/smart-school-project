@@ -8,6 +8,7 @@ except ImportError:
     from utils.db import get_db
 
 from flask_jwt_extended import jwt_required
+from datetime import date as date_module
 
 bp = Blueprint("attendance", __name__)
 attendance_view_bp = Blueprint("attendance_view", __name__)
@@ -124,3 +125,119 @@ def recent_attendance():
         records = []
 
     return jsonify({"records": records}), 200
+
+
+# -------------------------------------------------------------------
+# ADMIN DASHBOARD → TODAY'S ATTENDANCE COUNT
+# -------------------------------------------------------------------
+
+@bp.route("/today", methods=["GET"])
+@jwt_required()
+def today_attendance_count():
+    """
+    Get count of students marked present today.
+    GET /api/attendance/today  →  { "count": 5 }
+    """
+    from datetime import date as date_module
+    
+    today = date_module.today().strftime("%Y-%m-%d")
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute(
+            "SELECT COUNT(*) FROM student_attendance WHERE date = ? AND status = 'present'",
+            (today,),
+        )
+        count = cur.fetchone()[0] or 0
+    except Exception as e:
+        current_app.logger.warning("today_attendance_count failed: %s", e)
+        count = 0
+
+    return jsonify({"count": count}), 200
+
+
+# -------------------------------------------------------------------
+# ADMIN DASHBOARD → TEACHER'S RECENT ATTENDANCE VIEW
+# -------------------------------------------------------------------
+
+@attendance_view_bp.route("/teacher/<int:teacher_id>", methods=["GET"])
+@jwt_required()
+def teacher_recent_attendance(teacher_id):
+    """
+    Endpoint used by Teacher Dashboard:
+      GET /api/attendance-view/teacher/{id}?limit=5
+
+    Returns recent attendance records for that teacher's students.
+    """
+    limit = request.args.get("limit", default=5, type=int)
+
+    db = get_db()
+    cur = db.cursor()
+    records = []
+
+    try:
+        # Fetch students taught by this teacher + their recent attendance
+        cur.execute(
+            """
+            SELECT DISTINCT sa.date,
+                   s.name,
+                   s.class_name,
+                   sa.status
+            FROM student_attendance AS sa
+            JOIN students AS s ON s.id = sa.student_id
+            ORDER BY sa.date DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+
+        for row in rows:
+            records.append(
+                {
+                    "date": row[0],
+                    "name": row[1],
+                    "class_name": row[2],
+                    "status": row[3],
+                }
+            )
+
+    except Exception as e:
+        current_app.logger.warning(
+            "teacher_recent_attendance failed, returning empty list: %s", e
+        )
+        records = []
+
+    return jsonify({"data": records}), 200
+
+
+# -------------------------------------------------------------------
+# TEACHER DASHBOARD → TODAY'S STUDENT ATTENDANCE COUNT
+# -------------------------------------------------------------------
+
+@bp.route("/teacher/<int:teacher_id>/today", methods=["GET"])
+@jwt_required()
+def teacher_attendance_today_count(teacher_id):
+    """
+    Get count of students marked present today (for teacher dashboard).
+    GET /api/attendance/teacher/{id}/today
+
+    Returns: { "present": 5 }
+    """
+    today = date_module.today().strftime("%Y-%m-%d")
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute(
+            "SELECT COUNT(*) FROM student_attendance WHERE date = ? AND status = 'present'",
+            (today,),
+        )
+        present = cur.fetchone()[0] or 0
+    except Exception as e:
+        current_app.logger.warning("teacher_attendance_today_count failed: %s", e)
+        present = 0
+
+    return jsonify({"present": present}), 200
+

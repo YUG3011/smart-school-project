@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { loginUser } from "../../services/api";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 export default function LoginPage() {
   const [role, setRole] = useState("admin");
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async () => {
     setError("");
@@ -30,15 +32,31 @@ export default function LoginPage() {
       });
 
       const token = response.data.token;
+      const userData = { email, role };
 
+      console.log("✓ Login successful!");
+      console.log("✓ Token received:", token.substring(0, 30) + "...");
+      
+      // Store token in localStorage FIRST
       localStorage.setItem("token", token);
-      localStorage.setItem("role", role);
-      localStorage.setItem("email", email);
-
-      // Redirect based on role
-      if (role === "admin") navigate("/admin/dashboard");
-      else if (role === "teacher") navigate("/teacher/dashboard");
-      else navigate("/student/dashboard");
+      localStorage.setItem("user", JSON.stringify(userData));
+      console.log("✓ Stored in localStorage");
+      
+      // Then update context
+      login(token, userData);
+      console.log("✓ Updated AuthContext");
+      
+      // Verify before redirect
+      console.log("✓ Verification:");
+      console.log("  - localStorage token:", !!localStorage.getItem("token"));
+      console.log("  - localStorage user:", !!localStorage.getItem("user"));
+      
+      // Wait a bit then redirect (gives time for context to update)
+      setTimeout(() => {
+        if (role === "admin") navigate("/admin/dashboard");
+        else if (role === "teacher") navigate("/teacher/dashboard");
+        else navigate("/student/dashboard");
+      }, 200);
 
     } catch (err) {
       console.error("Login failed:", err);

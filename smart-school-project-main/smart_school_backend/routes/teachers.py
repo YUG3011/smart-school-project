@@ -141,3 +141,31 @@ def teachers_count():
         count = 0
 
     return jsonify({"count": count}), 200
+
+
+# -------------------------------------------------------------------
+# TEACHER DASHBOARD → STUDENT COUNT FOR SPECIFIC TEACHER
+# -------------------------------------------------------------------
+
+@bp.route("/<int:teacher_id>/student-count", methods=["GET"])
+@jwt_required()
+def teacher_student_count(teacher_id):
+    """
+    Get count of students for a specific teacher.
+    GET /api/teachers/{id}/student-count  →  { "count": 0 }
+    
+    For now, returns total students (can be customized if teacher-student
+    relationship table exists).
+    """
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute("SELECT COUNT(*) FROM students")
+        count = cur.fetchone()[0] or 0
+    except Exception as e:
+        current_app.logger.warning("teacher_student_count failed: %s", e)
+        count = 0
+
+    return jsonify({"count": count}), 200
+

@@ -15,28 +15,28 @@ const AppLayout = ({ children }) => {
 
   // ---------------- MENU DEFINITIONS ----------------
   const adminMenu = [
-    { label: "Dashboard", path: "/admin-dashboard" },
-    { label: "Mark Attendance", path: "/attendance" },
-    { label: "Students", path: "/students" },
-    { label: "Teachers", path: "/teachers" },
-    { label: "Timetable", path: "/timetable" },
-    { label: "Enroll Faces", path: "/face-enrollment" },
-    { label: "AI Reports", path: "/ai-reports" },
+    { label: "Dashboard", path: "/admin/dashboard" },
+    { label: "Mark Attendance", path: "/admin/attendance" },
+    { label: "Students", path: "/admin/students" },
+    { label: "Teachers", path: "/admin/teachers" },
+    { label: "Timetable", path: "/admin/timetable" },
+    { label: "Enroll Faces", path: "/admin/face-enrollment" },
+    { label: "AI Reports", path: "/admin/ai-reports" },
     { label: "Chatbot", path: "/chatbot" },
   ];
 
   const teacherMenu = [
-    { label: "Dashboard", path: "/teacher-dashboard" },
-    { label: "Mark Attendance", path: "/attendance" },
-    { label: "Enroll Student", path: "/teacher-add-student" },
-    { label: "Timetable", path: "/teacher-timetable" },
+    { label: "Dashboard", path: "/teacher/dashboard" },
+    { label: "Mark Attendance", path: "/teacher/attendance" },
+    { label: "Enroll Student", path: "/teacher/add-student" },
+    { label: "Timetable", path: "/teacher/timetable" },
     { label: "Chatbot", path: "/chatbot" },
   ];
 
   const studentMenu = [
-    { label: "Dashboard", path: "/student-dashboard" },
-    { label: "Mark Attendance", path: "/attendance" },
-    { label: "Timetable", path: "/student-timetable" },
+    { label: "Dashboard", path: "/student/dashboard" },
+    { label: "My Attendance", path: "/student/my-attendance" },
+    { label: "Timetable", path: "/student/timetable" },
     { label: "Chatbot", path: "/chatbot" },
   ];
 

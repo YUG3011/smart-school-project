@@ -1,14 +1,13 @@
 // src/pages/Parent/ParentDashboard.jsx
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import API from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function ParentDashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
-  const API = "http://127.0.0.1:5000/api";
 
   const [studentInfo, setStudentInfo] = useState(null);
 
@@ -24,7 +23,7 @@ export default function ParentDashboard() {
   // Load student assigned to parent
   const loadStudentInfo = async () => {
     try {
-      const res = await axios.get(`${API}/parents/${user.id}/student`);
+      const res = await API.get(`/parents/${user.id}/student`);
       setStudentInfo(res.data.student);
     } catch (err) {
       console.error("Parent student fetch error:", err);
@@ -34,8 +33,8 @@ export default function ParentDashboard() {
   // Load student attendance stats
   const loadStats = async (studentId) => {
     try {
-      const s1 = await axios.get(`${API}/student-attendance/${studentId}/stats`);
-      const s2 = await axios.get(`${API}/student-attendance/${studentId}/today`);
+      const s1 = await API.get(`/student-attendance/${studentId}/stats`);
+      const s2 = await API.get(`/student-attendance/${studentId}/today`);
 
       setStats({
         total_days: s1.data.total_days || 0,
@@ -51,8 +50,8 @@ export default function ParentDashboard() {
   // Load recent logs
   const loadRecent = async (studentId) => {
     try {
-      const logs = await axios.get(
-        `${API}/student-attendance/${studentId}/logs?limit=5`
+      const logs = await API.get(
+        `/student-attendance/${studentId}/logs?limit=5`
       );
       setRecent(logs.data.data || []);
     } catch (err) {
@@ -61,8 +60,10 @@ export default function ParentDashboard() {
   };
 
   useEffect(() => {
-    loadStudentInfo();
-  }, []);
+    if (token) {
+      loadStudentInfo();
+    }
+  }, [token]);
 
   useEffect(() => {
     if (studentInfo?.id) {

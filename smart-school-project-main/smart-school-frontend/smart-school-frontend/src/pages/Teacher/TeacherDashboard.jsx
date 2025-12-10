@@ -3,13 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../../services/api";
 
 export default function TeacherDashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
-
-  const API = "http://127.0.0.1:5000/api";
 
   const [stats, setStats] = useState({
     total_students: 0,
@@ -22,9 +20,9 @@ export default function TeacherDashboard() {
   // Fetch Teacher Dashboard Stats
   const loadStats = async () => {
     try {
-      const res1 = await axios.get(`${API}/teachers/${user.id}/student-count`);
-      const res2 = await axios.get(`${API}/attendance/teacher/${user.id}/today`);
-      const res3 = await axios.get(`${API}/timetable/teacher/${user.id}/today`);
+      const res1 = await API.get(`/teachers/${user.id}/student-count`);
+      const res2 = await API.get(`/attendance/teacher/${user.id}/today`);
+      const res3 = await API.get(`/timetable/teacher/${user.id}/today`);
 
       setStats({
         total_students: res1.data.count || 0,
@@ -39,8 +37,8 @@ export default function TeacherDashboard() {
   // Fetch Latest Logs for Teacher
   const loadRecent = async () => {
     try {
-      const res = await axios.get(
-        `${API}/attendance-view/teacher/${user.id}?limit=5`
+      const res = await API.get(
+        `/attendance-view/teacher/${user.id}?limit=5`
       );
       setRecent(res.data.data || []);
     } catch (err) {
@@ -51,7 +49,7 @@ export default function TeacherDashboard() {
   useEffect(() => {
     loadStats();
     loadRecent();
-  }, []);
+  }, [user, token]);
 
   return (
     <div className="p-4 md:p-6">

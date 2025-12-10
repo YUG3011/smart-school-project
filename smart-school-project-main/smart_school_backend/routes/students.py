@@ -166,3 +166,28 @@ def students_count():
         count = 0
 
     return jsonify({"count": count}), 200
+
+
+# -------------------------------------------------------------------
+# ADMIN DASHBOARD → CLASS COUNT
+# -------------------------------------------------------------------
+
+@bp.route("/class-count", methods=["GET"])
+@jwt_required()
+def class_count():
+    """
+    Get count of unique classes.
+    GET /api/students/class-count  →  { "count": 5 }
+    """
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute("SELECT COUNT(DISTINCT class_name) FROM students WHERE class_name IS NOT NULL")
+        count = cur.fetchone()[0] or 0
+    except Exception as e:
+        current_app.logger.warning("class_count failed: %s", e)
+        count = 0
+
+    return jsonify({"count": count}), 200
+
