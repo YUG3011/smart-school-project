@@ -30,7 +30,7 @@ def login():
 
     # Generate token (identity = user id; we put email and role into additional claims)
     additional_claims = {"email": user["email"], "role": user["role"]}
-    token = create_access_token(identity=user["id"], additional_claims=additional_claims)
+    token = create_access_token(identity=str(user["id"]), additional_claims=additional_claims)
 
     return jsonify({
         "message": "Login successful",

@@ -1,48 +1,59 @@
-// src/components/camera/CameraCapture.jsx
 import React, { useRef, useState, useEffect } from "react";
 
 export default function CameraCapture({ onCapture }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [cameraActive, setCameraActive] = useState(false);
 
-  // Start Camera
+  const [stream, setStream] = useState(null);
+  const [active, setActive] = useState(false);
+
   const startCamera = async () => {
     try {
-      setCameraActive(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const s = await navigator.mediaDevices.getUserMedia({
         video: true,
       });
-      videoRef.current.srcObject = stream;
-    } catch (error) {
-      console.error("Camera Error:", error);
-      alert("Unable to access camera");
+      setStream(s);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = s;
+      }
+
+      setActive(true);
+    } catch (err) {
+      console.error("Camera Error:", err);
+      alert("Cannot access camera");
     }
   };
 
-  // Stop Camera
   const stopCamera = () => {
-    setCameraActive(false);
-    let stream = videoRef.current.srcObject;
     if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((t) => t.stop());
     }
+    setActive(false);
   };
 
-  // Capture Snapshot
-  const captureImage = () => {
-    const canvas = canvasRef.current;
+  const capture = () => {
+    if (!canvasRef.current || !videoRef.current) {
+      alert("Camera not ready");
+      return;
+    }
+
     const video = videoRef.current;
+    const canvas = canvasRef.current;
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const base64 = canvas.toDataURL("image/jpeg");
 
-    onCapture(base64);
+    console.log("Captured Image Base64 Length:", base64.length);
+
+    if (onCapture) {
+      onCapture(base64);
+    }
   };
 
   useEffect(() => {
@@ -50,37 +61,28 @@ export default function CameraCapture({ onCapture }) {
   }, []);
 
   return (
-    <div className="space-y-3">
+    <div>
       <video
         ref={videoRef}
-        className="w-full rounded border"
         autoPlay
-        muted
         playsInline
+        muted
+        className="w-full rounded border"
       />
 
       <canvas ref={canvasRef} className="hidden"></canvas>
 
-      <div className="flex gap-3">
-        {!cameraActive ? (
-          <button
-            className="bg-green-600 text-white px-4 py-2 rounded"
-            onClick={startCamera}
-          >
+      <div className="flex gap-3 mt-3">
+        {!active ? (
+          <button className="bg-green-600 text-white px-4 py-2" onClick={startCamera}>
             Start Camera
           </button>
         ) : (
           <>
-            <button
-              className="bg-blue-600 text-white px-4 py-2 rounded"
-              onClick={captureImage}
-            >
+            <button className="bg-blue-600 text-white px-4 py-2" onClick={capture}>
               Capture Photo
             </button>
-            <button
-              className="bg-red-600 text-white px-4 py-2 rounded"
-              onClick={stopCamera}
-            >
+            <button className="bg-red-600 text-white px-4 py-2" onClick={stopCamera}>
               Stop Camera
             </button>
           </>

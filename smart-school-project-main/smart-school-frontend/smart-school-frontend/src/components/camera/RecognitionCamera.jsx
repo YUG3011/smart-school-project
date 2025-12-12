@@ -1,9 +1,6 @@
-// smart-school-frontend/src/components/camera/RecognitionCamera.jsx
-
+// src/components/camera/RecognitionCamera.jsx
 import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
-
-const API_URL = "http://127.0.0.1:5000/api";
+import api from "../../services/api";
 
 export default function RecognitionCamera({ onRecognized }) {
   const videoRef = useRef(null);
@@ -11,159 +8,98 @@ export default function RecognitionCamera({ onRecognized }) {
   const intervalRef = useRef(null);
 
   const [isRunning, setIsRunning] = useState(false);
-  const [borderColor, setBorderColor] = useState("#999"); // default grey
-  const [statusText, setStatusText] = useState("Camera idle");
+  const [status, setStatus] = useState("Idle");
+  const [borderColor, setBorderColor] = useState("#aaa");
 
-  // Start camera
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
       setIsRunning(true);
-      setStatusText("Camera active - scanning...");
+      setStatus("Camera active");
     } catch (err) {
-      console.error("Camera error:", err);
-      alert("Unable to access camera");
+      console.error("Camera start error:", err);
+      setStatus("Camera error");
     }
   };
 
-  // Stop camera and polling
   const stopCamera = () => {
     setIsRunning(false);
-    setStatusText("Camera stopped");
-    setBorderColor("#999");
-
+    setStatus("Stopped");
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setBorderColor("#aaa");
   };
 
-  // Capture current frame as base64
-  const captureFrameBase64 = () => {
+  const captureFrame = () => {
     const video = videoRef.current;
     if (!video) return null;
-
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
-
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const dataUrl = canvas.toDataURL("image/jpeg");
-    // Backend expects full data URL or just base64; we send full data URL for now
-    return dataUrl;
+    ctx.drawImage(video, 0, 0);
+    return canvas.toDataURL("image/jpeg");
   };
 
-  // Poll backend every 1.5s when running
   useEffect(() => {
-    if (!isRunning) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
+    if (!isRunning) return;
 
     intervalRef.current = setInterval(async () => {
-      const frameBase64 = captureFrameBase64();
-      if (!frameBase64) return;
+      const img = captureFrame();
+      if (!img) return;
 
       try {
-        const res = await axios.post(
-          `${API_URL}/face-recognition/recognize`,
-          { image_base64: frameBase64 }
-        );
-
-        // EXPECTED RESPONSE SHAPE (adjust if your backend differs):
-        // { match: true/false, name: "Chetan", role: "student"/"teacher" }
-        const { match, name, role } = res.data;
-
-        if (match) {
+        const res = await api.post("/face-recognition/recognize", { image_base64: img });
+        const data = res.data;
+        if (data.match) {
           setBorderColor("limegreen");
-          setStatusText(`Recognized: ${name} (${role})`);
-          if (onRecognized) {
-            onRecognized({ match, name, role });
-          }
+          setStatus(`Recognized: ${data.name || data.face_id}`);
         } else {
           setBorderColor("red");
-          setStatusText("Unknown face");
-          if (onRecognized) {
-            onRecognized({ match: false });
-          }
+          setStatus("Unknown face");
         }
+
+        if (onRecognized) onRecognized(data);
       } catch (err) {
-        console.error("Recognition error:", err);
+        console.error("Recognition API error:", err);
         setBorderColor("red");
-        setStatusText("Error contacting recognition API");
+        setStatus("Recognition error");
+        if (onRecognized) onRecognized({ error: true });
       }
     }, 1500);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isRunning, onRecognized]);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => stopCamera();
   }, []);
 
   return (
-    <div className="space-y-3">
-      <div
-        style={{
-          border: `4px solid ${borderColor}`,
-          borderRadius: "10px",
-          display: "inline-block",
-        }}
-      >
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{ width: "640px", height: "auto", borderRadius: "6px" }}
-        />
+    <div>
+      <div style={{ border: `4px solid ${borderColor}`, display: "inline-block", borderRadius: 8 }}>
+        <video ref={videoRef} autoPlay muted playsInline style={{ width: 640, borderRadius: 6 }} />
       </div>
 
-      <div className="flex gap-3">
+      <div className="mt-2">
         {!isRunning ? (
-          <button
-            className="bg-green-600 text-white px-4 py-2 rounded"
-            onClick={startCamera}
-          >
-            Start Camera
-          </button>
+          <button className="bg-green-600 px-4 py-2 text-white rounded" onClick={startCamera}>Start Camera</button>
         ) : (
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded"
-            onClick={stopCamera}
-          >
-            Stop Camera
-          </button>
+          <button className="bg-red-600 px-4 py-2 text-white rounded" onClick={stopCamera}>Stop Camera</button>
         )}
+        <span style={{ marginLeft: 12 }} className="text-sm text-gray-600">{status}</span>
       </div>
-
-      <div className="text-sm text-gray-600">{statusText}</div>
     </div>
   );
 }
