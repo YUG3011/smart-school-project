@@ -31,12 +31,16 @@ except ImportError:
 # =====================================================================
 app = Flask(__name__)
 
+# Keep structure and keys same / compatible with your previous config
 app.config["SECRET_KEY"] = "SMART_SCHOOL_SECRET_KEY"
 app.config["JWT_SECRET_KEY"] = "SMART_SCHOOL_JWT_SECRET"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
+
+# Explicit JWT header settings (ensure reading Authorization: Bearer <token>)
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = "Bearer"
+
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB
 app.config["JSON_SORT_KEYS"] = False
 
@@ -58,7 +62,7 @@ with app.app_context():
     create_face_embeddings_table()
 
 # =====================================================================
-# 5. IMPORT BLUEPRINTS (FIXED)
+# 5. IMPORT BLUEPRINTS (kept same as your structure)
 # =====================================================================
 try:
     from smart_school_backend.routes.auth import bp as auth_bp
@@ -92,7 +96,7 @@ from flask_jwt_extended import JWTManager
 
 jwt = JWTManager(app)
 
-# JWT Error Handlers
+# JWT Error Handlers (clear responses)
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
     return {"error": "Token has expired"}, 401
@@ -108,7 +112,16 @@ def missing_token_callback(error):
 # =====================================================================
 # 7. CORS ENABLED WITH AUTHORIZATION HEADER SUPPORT
 # =====================================================================
-CORS(app, supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
+# Explicit CORS configuration to allow Authorization header from dev origin(s)
+CORS(
+    app,
+    resources={r"/api/*": {
+        "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "supports_credentials": True
+    }},
+)
 
 # =====================================================================
 # 8. ERROR HANDLERS
@@ -155,27 +168,35 @@ def home():
     return {"status": "ok", "message": "Smart School Backend Running"}, 200
 
 # =====================================================================
-# 10. DEBUG: TEST TOKEN PRESENCE
+# 11. DEBUG: TEST TOKEN PRESENCE (handy while developing)
 # =====================================================================
 from flask import request
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 
 @app.route("/api/debug/token-check", methods=["GET"])
 def token_check():
-    """Debug endpoint to check if Authorization header is present"""
+    """Debug endpoint to quickly view Authorization header your frontend sends"""
     auth_header = request.headers.get("Authorization", "NOT PRESENT")
     return {
         "auth_header": auth_header,
         "all_headers": dict(request.headers)
     }, 200
 
+@app.route("/api/auth/me", methods=["GET"])
+@jwt_required()
+def auth_me():
+    """Return identity and claims for the current token (used by frontend to validate token)."""
+    identity = get_jwt_identity()
+    claims = get_jwt()
+    return {"identity": identity, "claims": claims}, 200
+
 # =====================================================================
-# 11. CLOSE DB AFTER EACH REQUEST
+# 12. CLOSE DB AFTER EACH REQUEST
 # =====================================================================
 app.teardown_appcontext(close_db)
 
 # =====================================================================
-# 12. RUN SERVER
+# 13. RUN SERVER
 # =====================================================================
 if __name__ == "__main__":
     app.run(debug=True)

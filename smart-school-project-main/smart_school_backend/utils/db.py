@@ -1,10 +1,18 @@
 import sqlite3
+import os
 from flask import g
 
-DB_PATH = "school.db"
+# Absolute path to the database inside backend/database/
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))          # utils/
+DB_DIR = os.path.join(BASE_DIR, "..", "database")              # backend/database/
+DB_PATH = os.path.join(DB_DIR, "smart_school.db")              # backend/database/smart_school.db
+
+DB_PATH = os.path.abspath(DB_PATH)
+
+# Ensure directory exists
+os.makedirs(DB_DIR, exist_ok=True)
 
 
-# ---------- GET DB CONNECTION ----------
 def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(DB_PATH, timeout=10, check_same_thread=False)
@@ -12,7 +20,6 @@ def get_db():
     return g.db
 
 
-# ---------- CLOSE DB CONNECTION ----------
 def close_db(e=None):
     db = g.pop("db", None)
     if db is not None:
