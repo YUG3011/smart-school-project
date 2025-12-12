@@ -3,8 +3,8 @@ import os
 from werkzeug.security import generate_password_hash
 
 # Correct database directory path relative to backend
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # /backend/database
-DB_PATH = os.path.join(BASE_DIR, "smart_school.db")        # backend/database/smart_school.db
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "smart_school.db")
 
 def init_db():
     print("📌 Initializing Smart School Database…")
@@ -13,7 +13,9 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
+    # ----------------------------------------------------
     # USERS TABLE
+    # ----------------------------------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +26,9 @@ def init_db():
     )
     """)
 
+    # ----------------------------------------------------
     # STUDENTS TABLE
+    # ----------------------------------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS students (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +39,9 @@ def init_db():
     )
     """)
 
+    # ----------------------------------------------------
     # TEACHERS TABLE
+    # ----------------------------------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS teachers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,27 +51,62 @@ def init_db():
     )
     """)
 
-    # FACE EMBEDDINGS
+    # ----------------------------------------------------
+    # FACE EMBEDDINGS TABLE
+    # ----------------------------------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS face_embeddings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        person_id INTEGER,
-        role TEXT,
-        embedding BLOB
+        role TEXT NOT NULL,
+        face_id TEXT NOT NULL UNIQUE,
+        name TEXT,
+        email TEXT,
+        class_name TEXT,
+        section TEXT,
+        created_at TEXT,
+        embedding BLOB NOT NULL
     )
     """)
 
-    # STUDENT ATTENDANCE
+    # ----------------------------------------------------
+    # FIXED STUDENT ATTENDANCE TABLE
+    # (MATCHES student_attendance.py)
+    # ----------------------------------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS student_attendance (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        student_id INTEGER,
-        date TEXT,
-        status TEXT
+        student_id INTEGER NOT NULL,
+        class_name TEXT NOT NULL,
+        date DATE NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'leave')),
+        marked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        marked_by INTEGER,
+        notes TEXT,
+        FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+        FOREIGN KEY(marked_by) REFERENCES users(id),
+        UNIQUE(student_id, date)
     )
     """)
 
-    # TEACHER ATTENDANCE
+    # Indexes
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_student_attendance_date 
+        ON student_attendance(date)
+    """)
+
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_student_attendance_student 
+        ON student_attendance(student_id, date)
+    """)
+
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_student_attendance_class 
+        ON student_attendance(class_name, date)
+    """)
+
+    # ----------------------------------------------------
+    # TEACHER ATTENDANCE (unchanged)
+    # ----------------------------------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS teacher_attendance (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +118,9 @@ def init_db():
 
     print("✔ All tables created successfully")
 
-    # CREATE DEFAULT ADMIN WITH HASHED PASSWORD
+    # ----------------------------------------------------
+    # Create Default Admin
+    # ----------------------------------------------------
     hashed_pw = generate_password_hash("admin123")
 
     cur.execute("""
@@ -85,7 +128,7 @@ def init_db():
         VALUES (?, ?, ?, ?)
     """, ("Admin", "admin@school.com", hashed_pw, "admin"))
 
-    print("✔ Default admin created with hashed password")
+    print("✔ Default admin created")
     print("   Email: admin@school.com")
     print("   Password: admin123")
 
