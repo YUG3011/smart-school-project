@@ -1,105 +1,127 @@
-// src/components/camera/RecognitionCamera.jsx
-import React, { useEffect, useRef, useState } from "react";
-import api from "../../services/api";
+import React, { useRef, useState, useEffect } from "react";
+import axios from "../../services/api";
 
 export default function RecognitionCamera({ onRecognized }) {
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const intervalRef = useRef(null);
-
-  const [isRunning, setIsRunning] = useState(false);
-  const [status, setStatus] = useState("Idle");
-  const [borderColor, setBorderColor] = useState("#aaa");
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setIsRunning(true);
-      setStatus("Camera active");
-    } catch (err) {
-      console.error("Camera start error:", err);
-      setStatus("Camera error");
-    }
-  };
-
-  const stopCamera = () => {
-    setIsRunning(false);
-    setStatus("Stopped");
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setBorderColor("#aaa");
-  };
-
-  const captureFrame = () => {
-    const video = videoRef.current;
-    if (!video) return null;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0);
-    return canvas.toDataURL("image/jpeg");
-  };
+  const canvasRef = useRef(null);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
 
   useEffect(() => {
-    if (!isRunning) return;
-
-    intervalRef.current = setInterval(async () => {
-      const img = captureFrame();
-      if (!img) return;
-
+    const startCamera = async () => {
       try {
-        const res = await api.post("/face-recognition/recognize", { image_base64: img });
-        const data = res.data;
-        if (data.match) {
-          setBorderColor("limegreen");
-          setStatus(`Recognized: ${data.name || data.face_id}`);
-        } else {
-          setBorderColor("red");
-          setStatus("Unknown face");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setIsCameraReady(true);
         }
-
-        if (onRecognized) onRecognized(data);
       } catch (err) {
-        console.error("Recognition API error:", err);
-        setBorderColor("red");
-        setStatus("Recognition error");
-        if (onRecognized) onRecognized({ error: true });
+        console.error("Camera error:", err);
+        alert("Camera access blocked");
       }
-    }, 1500);
+    };
+
+    startCamera();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+      }
     };
-  }, [isRunning, onRecognized]);
-
-  useEffect(() => {
-    return () => stopCamera();
   }, []);
 
+  const captureImage = () => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+
+    if (!canvas || !video) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const base64 = canvas.toDataURL("image/jpeg");
+    setCapturedImage(base64);
+  };
+
+  const recognizeFace = async () => {
+    if (!capturedImage) return;
+
+    try {
+      setLoading(true);
+      setResult(null);
+
+      const response = await axios.post("/face-recognition/recognize", {
+        image_base64: capturedImage,  // <<< FIXED: Correct backend field
+      });
+
+      setResult(response.data);
+
+      if (response.data?.matched && onRecognized) {
+        onRecognized(response.data);
+      }
+    } catch (error) {
+      console.error("Recognition error:", error);
+      setResult({ error: "Recognition failed" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div>
-      <div style={{ border: `4px solid ${borderColor}`, display: "inline-block", borderRadius: 8 }}>
-        <video ref={videoRef} autoPlay muted playsInline style={{ width: 640, borderRadius: 6 }} />
+    <div style={{ textAlign: "center" }}>
+      <h3>Face Recognition</h3>
+
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        style={{ width: "300px", borderRadius: "10px" }}
+      />
+
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      <div style={{ marginTop: "10px" }}>
+        <button
+          onClick={captureImage}
+          disabled={!isCameraReady}
+          style={{ padding: "8px 14px", marginRight: "10px" }}
+        >
+          Capture
+        </button>
+
+        <button
+          onClick={recognizeFace}
+          disabled={!capturedImage || loading}
+          style={{ padding: "8px 14px" }}
+        >
+          {loading ? "Recognizing..." : "Recognize"}
+        </button>
       </div>
 
-      <div className="mt-2">
-        {!isRunning ? (
-          <button className="bg-green-600 px-4 py-2 text-white rounded" onClick={startCamera}>Start Camera</button>
-        ) : (
-          <button className="bg-red-600 px-4 py-2 text-white rounded" onClick={stopCamera}>Stop Camera</button>
-        )}
-        <span style={{ marginLeft: 12 }} className="text-sm text-gray-600">{status}</span>
-      </div>
+      {capturedImage && (
+        <div style={{ marginTop: "15px" }}>
+          <h4>Captured Image:</h4>
+          <img
+            src={capturedImage}
+            alt="Captured"
+            style={{ width: "200px", borderRadius: "10px" }}
+          />
+        </div>
+      )}
+
+      {result && (
+        <div style={{ marginTop: "20px" }}>
+          <h4>Result:</h4>
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </div>
+      )}
     </div>
   );
 }

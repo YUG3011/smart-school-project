@@ -1,99 +1,72 @@
-import sqlite3
-import numpy as np
-import cv2
-import face_recognition
-from utils.db import get_db
+# smart_school_backend/models/face_recognition.py
 
-# -------------------------------------------------------------
-# Create Table
-# -------------------------------------------------------------
+import sqlite3
+import os
+
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "smart_school.db")
+
+def get_connection():
+    """Returns a database connection."""
+    return sqlite3.connect(DB_PATH)
+
 def create_face_embeddings_table():
-    db = get_db()
-    db.execute("""
+    """
+    Creates the face_embeddings table if it does not already exist.
+    This file is ONLY for database schema. Actual recognition happens in routes/face_recognition.py.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS face_embeddings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            person_id TEXT NOT NULL,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            role TEXT NOT NULL,
+            role TEXT NOT NULL,             -- 'student' or 'teacher'
+            face_id TEXT NOT NULL UNIQUE,   -- ST10001 or T1001
+            name TEXT,
+            email TEXT,
+            class_name TEXT,
+            section TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             embedding BLOB NOT NULL
-        )
+        );
     """)
-    db.commit()
 
+    conn.commit()
+    conn.close()
+    print("✔ face_embeddings table verified/created.")
 
-# -------------------------------------------------------------
-# Extract Face Embedding from Base64
-# -------------------------------------------------------------
-def extract_face_embeddings(image_base64):
-    try:
-        img_bytes = np.frombuffer(base64.b64decode(image_base64.split(",")[-1]), np.uint8)
-        img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
+def insert_face_embedding(role, face_id, name, email, class_name, section, embedding_bytes):
+    """
+    Inserts a new embedded face into the database.
+    Called by the ENROLL API inside routes/face_recognition.py
+    """
+    conn = get_connection()
+    cur = conn.cursor()
 
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        boxes = face_recognition.face_locations(rgb)
+    cur.execute("""
+        INSERT OR REPLACE INTO face_embeddings
+        (role, face_id, name, email, class_name, section, embedding)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (role, face_id, name, email, class_name, section, embedding_bytes))
 
-        if len(boxes) == 0:
-            return None
+    conn.commit()
+    conn.close()
+    return True
 
-        encodings = face_recognition.face_encodings(rgb, boxes)
-        if len(encodings) == 0:
-            return None
+def fetch_all_embeddings():
+    """
+    Returns all stored embeddings for face recognition comparison.
+    Used by recognition endpoint (routes/face_recognition.py)
+    """
+    conn = get_connection()
+    cur = conn.cursor()
 
-        return encodings[0]  # 128-dim vector
+    cur.execute("""
+        SELECT role, face_id, name, email, class_name, section, embedding
+        FROM face_embeddings
+    """)
 
-    except Exception as e:
-        print("Face extract error:", e)
-        return None
-
-
-# -------------------------------------------------------------
-# Save Embedding to Database
-# -------------------------------------------------------------
-def save_face_embedding(person_id, name, email, role, embedding):
-    db = get_db()
-    db.execute("""
-        INSERT INTO face_embeddings (person_id, name, email, role, embedding)
-        VALUES (?, ?, ?, ?, ?)
-    """, (person_id, name, email, role, embedding.tobytes()))
-    db.commit()
-
-
-# -------------------------------------------------------------
-# Read All Embeddings
-# -------------------------------------------------------------
-def get_all_embeddings():
-    db = get_db()
-    rows = db.execute("SELECT * FROM face_embeddings").fetchall()
-
-    embeddings = []
-    for row in rows:
-        emb_vec = np.frombuffer(row["embedding"], dtype=np.float64)
-        embeddings.append({
-            "id": row["id"],
-            "person_id": row["person_id"],
-            "name": row["name"],
-            "email": row["email"],
-            "role": row["role"],
-            "embedding": emb_vec,
-        })
-    return embeddings
-
-
-# -------------------------------------------------------------
-# Compare Input Embedding with Saved Ones
-# -------------------------------------------------------------
-def recognize_face(input_embedding, stored_embeddings, threshold=0.6):
-    best_match = None
-    min_dist = 999
-
-    for row in stored_embeddings:
-        dist = np.linalg.norm(input_embedding - row["embedding"])
-        if dist < min_dist:
-            min_dist = dist
-            best_match = row
-
-    if min_dist <= threshold:
-        return best_match
-
-    return None
+    rows = cur.fetchall()
+    conn.close()
+    return rows
