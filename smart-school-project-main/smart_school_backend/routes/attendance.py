@@ -124,7 +124,7 @@ def recent_attendance():
         )
         records = []
 
-    return jsonify({"records": records}), 200
+    return jsonify({"data": records}), 200
 
 
 # -------------------------------------------------------------------

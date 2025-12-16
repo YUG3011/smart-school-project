@@ -35,7 +35,7 @@ export default function EditStudent() {
 
     try {
       await API.put(`/students/${id}`, form);
-      navigate("/students");
+      navigate("/admin/students");
     } catch (err) {
       console.error("Update failed:", err);
     }

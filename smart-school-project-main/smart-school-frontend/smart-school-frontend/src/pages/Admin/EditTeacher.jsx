@@ -35,7 +35,7 @@ export default function EditTeacher() {
 
     try {
       await API.put(`/teachers/${id}`, form);
-      navigate("/teachers");
+      navigate("/admin/teachers");
     } catch (err) {
       console.error("Update failed:", err);
     }

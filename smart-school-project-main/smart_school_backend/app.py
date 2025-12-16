@@ -1,5 +1,3 @@
-# smart_school_backend/app.py
-
 from flask import Flask
 from flask_cors import CORS
 from datetime import timedelta
@@ -7,10 +5,10 @@ import os
 import sys
 
 # =====================================================================
-# 1. FIX PYTHON PATHS SO ALL MODULES IMPORT CORRECTLY
+# 1. FIX PYTHON PATHS
 # =====================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))      # smart_school_backend/
-ROOT_DIR = os.path.dirname(BASE_DIR)                       # smart-school-project-main/
+ROOT_DIR = os.path.dirname(BASE_DIR)                       # project root
 
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
@@ -27,32 +25,30 @@ except ImportError:
     from utils.db import close_db
 
 # =====================================================================
-# 3. FLASK APP CONFIGURATION
+# 3. FLASK CONFIG
 # =====================================================================
 app = Flask(__name__)
 
-# Keep structure and keys same / compatible with your previous config
 app.config["SECRET_KEY"] = "SMART_SCHOOL_SECRET_KEY"
 app.config["JWT_SECRET_KEY"] = "SMART_SCHOOL_JWT_SECRET"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 
-# Explicit JWT header settings (ensure reading Authorization: Bearer <token>)
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
 app.config["JWT_HEADER_TYPE"] = "Bearer"
 
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 app.config["JSON_SORT_KEYS"] = False
 
 # =====================================================================
-# 4. CREATE TABLES ON STARTUP
+# 4. INITIALIZE TABLES
 # =====================================================================
 with app.app_context():
     try:
         from smart_school_backend.models.student_attendance import create_student_attendance_table
         from smart_school_backend.models.teacher_attendance import create_teacher_attendance_table
         from smart_school_backend.models.face_recognition import create_face_embeddings_table
-    except ImportError:
+    except:
         from models.student_attendance import create_student_attendance_table
         from models.teacher_attendance import create_teacher_attendance_table
         from models.face_recognition import create_face_embeddings_table
@@ -62,86 +58,58 @@ with app.app_context():
     create_face_embeddings_table()
 
 # =====================================================================
-# 5. IMPORT BLUEPRINTS (kept same as your structure)
+# 5. IMPORT BLUEPRINTS
 # =====================================================================
-try:
-    from smart_school_backend.routes.auth import bp as auth_bp
-    from smart_school_backend.routes.students import bp as students_bp
-    from smart_school_backend.routes.teachers import bp as teachers_bp
-    from smart_school_backend.routes.attendance import bp as attendance_bp, attendance_view_bp
-    from smart_school_backend.routes.student_attendance import student_attendance_bp
-    from smart_school_backend.routes.teacher_attendance import bp as teacher_attendance_bp
-    from smart_school_backend.routes.face_recognition import face_recognition_bp
-    from smart_school_backend.routes.automatic_attendance import bp as automatic_attendance_bp
-    from smart_school_backend.routes.realtime_attendance import bp as realtime_attendance_bp
-    from smart_school_backend.routes.timetable import bp as timetable_bp
-    from smart_school_backend.routes.chatbot import chatbot_bp
-except ImportError:
-    from routes.auth import bp as auth_bp
-    from routes.students import bp as students_bp
-    from routes.teachers import bp as teachers_bp
-    from routes.attendance import bp as attendance_bp, attendance_view_bp
-    from routes.student_attendance import student_attendance_bp
-    from routes.teacher_attendance import bp as teacher_attendance_bp
-    from routes.face_recognition import face_recognition_bp
-    from routes.automatic_attendance import bp as automatic_attendance_bp
-    from routes.realtime_attendance import bp as realtime_attendance_bp
-    from routes.timetable import bp as timetable_bp
-    from routes.chatbot import chatbot_bp
+def safe_import_route(module_path, fallback_path, obj):
+    """Safely import modules with fallback."""
+    try:
+        mod = __import__(module_path, fromlist=[obj])
+        return getattr(mod, obj)
+    except:
+        mod = __import__(fallback_path, fromlist=[obj])
+        return getattr(mod, obj)
+
+
+auth_bp = safe_import_route("smart_school_backend.routes.auth", "routes.auth", "bp")
+students_bp = safe_import_route("smart_school_backend.routes.students", "routes.students", "bp")
+teachers_bp = safe_import_route("smart_school_backend.routes.teachers", "routes.teachers", "bp")
+
+attendance_bp = safe_import_route("smart_school_backend.routes.attendance", "routes.attendance", "bp")
+attendance_view_bp = safe_import_route("smart_school_backend.routes.attendance", "routes.attendance", "attendance_view_bp")
+
+student_attendance_bp = safe_import_route("smart_school_backend.routes.student_attendance", "routes.student_attendance", "student_attendance_bp")
+teacher_attendance_bp = safe_import_route("smart_school_backend.routes.teacher_attendance", "routes.teacher_attendance", "bp")
+
+face_recognition_bp = safe_import_route("smart_school_backend.routes.face_recognition", "routes.face_recognition", "face_recognition_bp")
+
+automatic_attendance_bp = safe_import_route("smart_school_backend.routes.automatic_attendance", "routes.automatic_attendance", "bp")
+realtime_attendance_bp = safe_import_route("smart_school_backend.routes.realtime_attendance", "routes.realtime_attendance", "bp")
+
+timetable_bp = safe_import_route("smart_school_backend.routes.timetable", "routes.timetable", "bp")
+chatbot_bp = safe_import_route("smart_school_backend.routes.chatbot", "routes.chatbot", "chatbot_bp")
 
 # =====================================================================
-# 6. INIT JWT
+# 6. JWT SETUP
 # =====================================================================
 from flask_jwt_extended import JWTManager
 
 jwt = JWTManager(app)
 
-# JWT Error Handlers (clear responses)
-@jwt.expired_token_loader
-def expired_token_callback(jwt_header, jwt_payload):
-    return {"error": "Token has expired"}, 401
-
-@jwt.invalid_token_loader
-def invalid_token_callback(error):
-    return {"error": f"Invalid token: {error}"}, 401
-
-@jwt.unauthorized_loader
-def missing_token_callback(error):
-    return {"error": "Token is missing or invalid. Please login first."}, 401
-
 # =====================================================================
-# 7. CORS ENABLED WITH AUTHORIZATION HEADER SUPPORT
+# 7. CORS
 # =====================================================================
-# Explicit CORS configuration to allow Authorization header from dev origin(s)
 CORS(
     app,
     resources={r"/api/*": {
         "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
         "allow_headers": ["Content-Type", "Authorization"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "supports_credentials": True
+        "supports_credentials": True,
     }},
 )
 
 # =====================================================================
-# 8. ERROR HANDLERS
-# =====================================================================
-from werkzeug.exceptions import BadRequest
-
-@app.errorhandler(400)
-def bad_request(e):
-    return {"error": f"Bad request: {str(e)}"}, 400
-
-@app.errorhandler(422)
-def unprocessable(e):
-    return {"error": f"Invalid JSON or malformed request: {str(e)}"}, 422
-
-@app.errorhandler(413)
-def file_too_large(e):
-    return {"error": "Uploaded file too large"}, 413
-
-# =====================================================================
-# 9. REGISTER BLUEPRINTS
+# 8. REGISTER BLUEPRINTS
 # =====================================================================
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(students_bp, url_prefix="/api/students")
@@ -154,6 +122,7 @@ app.register_blueprint(student_attendance_bp, url_prefix="/api/student-attendanc
 app.register_blueprint(teacher_attendance_bp, url_prefix="/api/teacher-attendance")
 
 app.register_blueprint(face_recognition_bp, url_prefix="/api/face-recognition")
+
 app.register_blueprint(automatic_attendance_bp, url_prefix="/api/auto-attendance")
 app.register_blueprint(realtime_attendance_bp, url_prefix="/api/realtime-attendance")
 
@@ -161,42 +130,30 @@ app.register_blueprint(timetable_bp, url_prefix="/api/timetable")
 app.register_blueprint(chatbot_bp, url_prefix="/api/chatbot")
 
 # =====================================================================
-# 10. DEFAULT ROUTE
+# 9. HEALTH CHECK
 # =====================================================================
 @app.route("/")
 def home():
-    return {"status": "ok", "message": "Smart School Backend Running"}, 200
+    return {"status": "running", "message": "Smart School Backend Running"}, 200
 
 # =====================================================================
-# 11. DEBUG: TEST TOKEN PRESENCE (handy while developing)
+# 10. DEBUG TOKEN
 # =====================================================================
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 
-@app.route("/api/debug/token-check", methods=["GET"])
-def token_check():
-    """Debug endpoint to quickly view Authorization header your frontend sends"""
-    auth_header = request.headers.get("Authorization", "NOT PRESENT")
-    return {
-        "auth_header": auth_header,
-        "all_headers": dict(request.headers)
-    }, 200
-
-@app.route("/api/auth/me", methods=["GET"])
+@app.route("/api/auth/me")
 @jwt_required()
-def auth_me():
-    """Return identity and claims for the current token (used by frontend to validate token)."""
-    identity = get_jwt_identity()
-    claims = get_jwt()
-    return {"identity": identity, "claims": claims}, 200
+def get_me():
+    return {"identity": get_jwt_identity(), "claims": get_jwt()}, 200
 
 # =====================================================================
-# 12. CLOSE DB AFTER EACH REQUEST
+# 11. CLOSE DB
 # =====================================================================
 app.teardown_appcontext(close_db)
 
 # =====================================================================
-# 13. RUN SERVER
+# 12. RUN SERVER
 # =====================================================================
 if __name__ == "__main__":
     app.run(debug=True)

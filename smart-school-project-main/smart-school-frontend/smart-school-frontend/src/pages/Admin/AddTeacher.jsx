@@ -20,7 +20,7 @@ export default function AddTeacher() {
 
     try {
       await API.post("/teachers", form);
-      navigate("/teachers");
+      navigate("/admin/teachers");
     } catch (err) {
       console.error("Add teacher failed:", err);
     }

@@ -20,7 +20,7 @@ export default function AddStudent() {
 
     try {
       await API.post("/students", form);
-      navigate("/students"); // back to list
+      navigate("/admin/students"); // back to admin list
     } catch (err) {
       console.error("Add student failed:", err);
     }

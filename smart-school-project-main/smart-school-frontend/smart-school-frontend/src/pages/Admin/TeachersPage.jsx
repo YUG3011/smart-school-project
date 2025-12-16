@@ -41,7 +41,7 @@ export default function TeachersPage() {
         <h2 className="text-2xl font-semibold">Teachers</h2>
 
         <Link
-          to="/add-teacher"
+          to="/admin/add-teacher"
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           + Add Teacher
@@ -71,7 +71,7 @@ export default function TeachersPage() {
                 <td className="p-3 border">{t.subject}</td>
                 <td className="p-3 border space-x-3">
                   <Link
-                    to={`/edit-teacher/${t.id}`}
+                    to={`/admin/edit-teacher/${t.id}`}
                     className="text-blue-600"
                   >
                     Edit

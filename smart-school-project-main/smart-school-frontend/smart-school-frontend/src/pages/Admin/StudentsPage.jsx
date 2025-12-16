@@ -7,25 +7,35 @@ export default function StudentsPage() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Fetch students from backend
   const fetchStudents = async () => {
     try {
-      const res = await API.get("/students");
-      setStudents(res.data.students || []);
-      setLoading(false);
-    } catch (err) {
-      console.error("Error fetching students:", err);
+      const response = await API.get("/students");
+
+      console.log("STUDENT LIST RESPONSE:", response.data);
+
+      const list = Array.isArray(response.data.students)
+        ? response.data.students
+        : [];
+
+      setStudents(list);
+    } catch (error) {
+      console.error("Error loading students:", error);
+      setStudents([]); // prevent frontend crash
+    } finally {
       setLoading(false);
     }
   };
 
+  // Delete student
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this student?")) return;
+    if (!window.confirm("Are you sure you want to delete this student?")) return;
 
     try {
       await API.delete(`/students/${id}`);
-      fetchStudents(); // refresh list
-    } catch (err) {
-      console.error("Delete failed:", err);
+      fetchStudents(); // refresh table
+    } catch (error) {
+      console.error("Delete failed:", error);
     }
   };
 
@@ -33,14 +43,15 @@ export default function StudentsPage() {
     fetchStudents();
   }, []);
 
-  if (loading) return <div className="p-6 text-lg">Loading...</div>;
+  if (loading) return <div className="p-6 text-lg">Loading students...</div>;
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">Students</h2>
+
         <Link
-          to="/add-student"
+          to="/admin/add-student"
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           + Add Student
@@ -58,6 +69,7 @@ export default function StudentsPage() {
               <th className="p-3 border">Name</th>
               <th className="p-3 border">Email</th>
               <th className="p-3 border">Class</th>
+              <th className="p-3 border">Section</th>
               <th className="p-3 border">Action</th>
             </tr>
           </thead>
@@ -68,12 +80,11 @@ export default function StudentsPage() {
                 <td className="p-3 border">{s.id}</td>
                 <td className="p-3 border">{s.name}</td>
                 <td className="p-3 border">{s.email}</td>
-                <td className="p-3 border">{s.class_name}</td>
+                <td className="p-3 border">{s.class_name || "—"}</td>
+                <td className="p-3 border">{s.section || "—"}</td>
+
                 <td className="p-3 border space-x-3">
-                  <Link
-                    to={`/edit-student/${s.id}`}
-                    className="text-blue-600"
-                  >
+                  <Link to={`/admin/edit-student/${s.id}`} className="text-blue-600">
                     Edit
                   </Link>
                   <button
