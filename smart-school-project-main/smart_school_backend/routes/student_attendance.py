@@ -34,23 +34,36 @@ def mark_student_attendance():
     student_id = data.get("student_id")
     date = data.get("date")
     status = data.get("status", "present")
+    class_name = data.get("class_name")
 
     if not student_id or not date:
         return jsonify({"error": "student_id and date required"}), 400
+
+    # If class_name not provided, try to fetch from students table
+    if not class_name:
+        try:
+            cur.execute("SELECT class_name FROM students WHERE id = ?", (student_id,))
+            row = cur.fetchone()
+            class_name = row[0] if row and row[0] else None
+        except Exception:
+            class_name = None
+
+    if not class_name:
+        return jsonify({"error": "class_name required (provide or ensure student has a class_name)"}), 400
 
     db = get_db()
     cur = db.cursor()
 
     try:
-        # Insert or update attendance
+        # Insert or update attendance (include class_name)
         cur.execute(
             """
-            INSERT INTO student_attendance (student_id, date, status)
-            VALUES (?, ?, ?)
+            INSERT INTO student_attendance (student_id, class_name, date, status)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT(student_id, date)
             DO UPDATE SET status=excluded.status
             """,
-            (student_id, date, status),
+            (student_id, class_name, date, status),
         )
         db.commit()
 

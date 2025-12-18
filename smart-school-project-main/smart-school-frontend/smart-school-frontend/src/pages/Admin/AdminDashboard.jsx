@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import API from "../../services/api";
+import { Pie } from "react-chartjs-2";
+import Chart from "chart.js/auto";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ export default function AdminDashboard() {
     teachers: 0,
     today_attendance: 0,
     classes: 0,
+    teachers_present: 0,
   });
 
   const [recent, setRecent] = useState([]);
@@ -25,12 +28,14 @@ export default function AdminDashboard() {
       const t = await API.get(`/teachers/count`);
       const a = await API.get(`/attendance/today`);
       const c = await API.get(`/students/class-count`);
+      const tp = await API.get(`/attendance/teachers/today`);
 
       setStats({
         students: s.data.count || 0,
         teachers: t.data.count || 0,
         today_attendance: a.data.count || 0,
         classes: c.data.count || 0,
+        teachers_present: tp.data.count || 0,
       });
     } catch (err) {
       console.error("Stats Error:", err);
@@ -83,7 +88,7 @@ export default function AdminDashboard() {
 
         <ActionButton
           label="Enroll Faces"
-          onClick={() => navigate("/admin/face-enrollment")}
+          onClick={() => navigate("/admin/students")}
           color="green"
         />
 
@@ -100,45 +105,41 @@ export default function AdminDashboard() {
         />
 
       </div>
+      {/* Present/Total Pie Charts */}
+      <h2 className="text-xl font-semibold mb-3">Attendance Overview</h2>
 
-      {/* Recent Attendance Logs */}
-      <h2 className="text-xl font-semibold mb-3">Recent Attendance</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white shadow rounded p-4">
+          <h3 className="text-lg font-semibold mb-3">Students: Present / Total</h3>
+          <Pie
+            data={{
+              labels: ["Present", "Absent"],
+              datasets: [
+                {
+                  data: [stats.today_attendance, Math.max(0, stats.students - stats.today_attendance)],
+                  backgroundColor: ["#34D399", "#E5E7EB"],
+                },
+              ],
+            }}
+          />
+          <div className="mt-3 text-sm text-gray-600">{stats.today_attendance} present of {stats.students} students</div>
+        </div>
 
-      <div className="bg-white shadow rounded p-4">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b">
-              <th className="py-2">Name</th>
-              <th className="py-2">Role</th>
-              <th className="py-2">Class</th>
-              <th className="py-2">Time</th>
-              <th className="py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recent.length === 0 && (
-              <tr>
-                <td colSpan="5" className="py-4 text-center text-gray-500">
-                  No recent attendance logs
-                </td>
-              </tr>
-            )}
-
-            {recent.map((r, index) => (
-              <tr key={index} className="border-b hover:bg-gray-50">
-                <td className="py-2">{r.name}</td>
-                <td className="py-2">{r.role}</td>
-                <td className="py-2">{r.class_name || "-"}</td>
-                <td className="py-2">{r.time}</td>
-                <td className="py-2">
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
-                    Present
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="bg-white shadow rounded p-4">
+          <h3 className="text-lg font-semibold mb-3">Teachers: Present / Total</h3>
+          <Pie
+            data={{
+              labels: ["Present", "Absent"],
+              datasets: [
+                {
+                  data: [stats.teachers_present, Math.max(0, stats.teachers - stats.teachers_present)],
+                  backgroundColor: ["#60A5FA", "#E5E7EB"],
+                },
+              ],
+            }}
+          />
+          <div className="mt-3 text-sm text-gray-600">{stats.teachers_present} present of {stats.teachers} teachers</div>
+        </div>
       </div>
 
     </div>

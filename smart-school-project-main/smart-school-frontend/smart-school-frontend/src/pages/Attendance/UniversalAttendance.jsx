@@ -74,17 +74,21 @@ export default function UniversalAttendance() {
     const frame = captureFrame();
 
     try {
-      const res = await axios.post(`${API}/face-recognition/recognize`, {
+      const res = await axios.post(`${API}/face/recognize`, {
         image_base64: frame
       });
 
       const data = res.data;
 
-      if (data.success === true && data.match === true) {
+      if (data.match === true) {
         drawBoundingBox("green");
         setStatusMessage(`Recognized: ${data.name} (${data.role})`);
 
+        // markAttendance expects numeric id keys
         await markAttendance(data);
+      } else if (data.error === "duplicate_enrollment") {
+        drawBoundingBox("orange");
+        setStatusMessage("Duplicate enrollment detected — check admin.");
       } else {
         drawBoundingBox("red");
         setStatusMessage("Unknown Face");
@@ -100,21 +104,21 @@ export default function UniversalAttendance() {
   // Mark attendance depending on role
   const markAttendance = async (data) => {
     try {
-      let endpoint = "";
-
       if (data.role === "student") {
-        endpoint = `${API}/student-attendance/mark`;
+        await axios.post(`${API}/student-attendance/mark`, {
+          student_id: data.person_id || data.id,
+          date: new Date().toISOString().split('T')[0],
+          status: 'present'
+        });
       } else if (data.role === "teacher") {
-        endpoint = `${API}/teacher-attendance/mark`;
+        await axios.post(`${API}/teacher-attendance/mark`, {
+          teacher_id: data.person_id || data.id,
+          date: new Date().toISOString().split('T')[0],
+          status: 'present'
+        });
       }
 
-      if (endpoint === "") return;
-
-      const res = await axios.post(endpoint, {
-        person_id: data.id
-      });
-
-      setStatusMessage(res.data.message || "Attendance Marked");
+      setStatusMessage("Attendance marked");
     } catch (err) {
       console.error("Attendance error:", err);
       setStatusMessage("Error marking attendance");

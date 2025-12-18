@@ -20,7 +20,7 @@ export default function TeacherEnrollStudent() {
 
     try {
       const res = await axios.post(
-        `${API_URL}/face-recognition/enroll`,
+        "/face/enroll",
         {
           ...form,
           image_base64: imageBase64,

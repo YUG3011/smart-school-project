@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required
 import sqlite3
 import os
 
-bp = Blueprint("students", __name__, url_prefix="/api/students")
+bp = Blueprint("students", __name__)
 
 def get_db():
     db_path = os.path.join(os.path.dirname(__file__), "..", "database", "smart_school.db")
@@ -22,7 +22,7 @@ def get_students():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute("SELECT id, name, email, class_name, section FROM students ORDER BY id DESC")
+        cur.execute("SELECT id, name, email, id_code, class_name, section FROM students ORDER BY id DESC")
         rows = cur.fetchall()
 
         students = [dict(row) for row in rows]
@@ -35,6 +35,104 @@ def get_students():
     except Exception as e:
         print("ERROR GET_STUDENTS:", e)
         return jsonify({"error": "Failed to load students"}), 500
+
+
+# ----------------------------------------------------------
+# CREATE STUDENT
+# POST /api/students
+# ----------------------------------------------------------
+@bp.route("", methods=["POST"])
+@jwt_required()
+def create_student():
+    try:
+        data = request.get_json() or {}
+        name = data.get("name")
+        id_code = data.get("id_code")
+        email = data.get("email")
+        class_name = data.get("class_name")
+        section = data.get("section")
+
+        if not name or not email:
+            return jsonify({"error": "name and email required"}), 400
+
+        conn = get_db()
+        cur = conn.cursor()
+        if id_code:
+            cur.execute("INSERT INTO students (name, email, id_code, class_name, section) VALUES (?, ?, ?, ?, ?)",
+                        (name, email, id_code, class_name, section))
+        else:
+            cur.execute("INSERT INTO students (name, email, class_name, section) VALUES (?, ?, ?, ?)",
+                        (name, email, class_name, section))
+        conn.commit()
+        return jsonify({"message": "Student created", "id": cur.lastrowid}), 201
+    except Exception as e:
+        print("ERROR create_student:", e)
+        return jsonify({"error": "Failed to create student"}), 500
+
+
+# ----------------------------------------------------------
+# GET /api/students/<id>
+# ----------------------------------------------------------
+@bp.route("/<int:student_id>", methods=["GET"])
+@jwt_required()
+def get_student(student_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, email, id_code, class_name, section FROM students WHERE id=?", (student_id,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Not found"}), 404
+        return jsonify({"student": dict(row)}), 200
+    except Exception as e:
+        print("ERROR get_student:", e)
+        return jsonify({"error": "Failed to load student"}), 500
+
+
+# ----------------------------------------------------------
+# UPDATE /api/students/<id>
+# ----------------------------------------------------------
+@bp.route("/<int:student_id>", methods=["PUT"])
+@jwt_required()
+def update_student(student_id):
+    try:
+        data = request.get_json() or {}
+        name = data.get("name")
+        id_code = data.get("id_code")
+        email = data.get("email")
+        class_name = data.get("class_name")
+        section = data.get("section")
+
+        conn = get_db()
+        cur = conn.cursor()
+        if id_code is not None:
+            cur.execute("UPDATE students SET name=?, email=?, id_code=?, class_name=?, section=? WHERE id=?",
+                        (name, email, id_code, class_name, section, student_id))
+        else:
+            cur.execute("UPDATE students SET name=?, email=?, class_name=?, section=? WHERE id=?",
+                        (name, email, class_name, section, student_id))
+        conn.commit()
+        return jsonify({"message": "Student updated"}), 200
+    except Exception as e:
+        print("ERROR update_student:", e)
+        return jsonify({"error": "Failed to update student"}), 500
+
+
+# ----------------------------------------------------------
+# DELETE /api/students/<id>
+# ----------------------------------------------------------
+@bp.route("/<int:student_id>", methods=["DELETE"])
+@jwt_required()
+def delete_student(student_id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM students WHERE id=?", (student_id,))
+        conn.commit()
+        return jsonify({"message": "Student deleted"}), 200
+    except Exception as e:
+        print("ERROR delete_student:", e)
+        return jsonify({"error": "Failed to delete student"}), 500
 
 
 # ============================================================

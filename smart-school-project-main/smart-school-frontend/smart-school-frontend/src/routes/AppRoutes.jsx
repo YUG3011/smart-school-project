@@ -12,7 +12,6 @@ import UniversalAttendance from "../pages/Attendance/UniversalAttendance";
 
 /* ADMIN */
 import AdminDashboard from "../pages/Admin/AdminDashboard";
-import FaceEnrollmentPage from "../pages/Admin/FaceEnrollmentPage";
 import StudentsPage from "../pages/Admin/StudentsPage";
 import AddStudent from "../pages/Admin/AddStudent";
 import EditStudent from "../pages/Admin/EditStudent";
@@ -83,14 +82,7 @@ export default function AppRoutes() {
             }
           />
 
-          <Route
-            path="/admin/face-enrollment"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <AppLayout><FaceEnrollmentPage /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
+          {/* face-enrollment route removed — enrollment is done via Add pages */}
 
           <Route
             path="/admin/students"

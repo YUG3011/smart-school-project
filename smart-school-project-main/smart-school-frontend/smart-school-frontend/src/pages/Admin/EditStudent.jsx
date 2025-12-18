@@ -60,12 +60,23 @@ export default function EditStudent() {
           className="border p-3 rounded w-full"
         />
 
-        <input
-          name="class_name"
-          value={form.class_name}
-          onChange={handleChange}
-          className="border p-3 rounded w-full"
-        />
+        <label className="block">
+          <span className="text-sm">Class</span>
+          <select name="class_name" value={form.class_name} onChange={handleChange} className="border p-3 rounded w-full mt-1">
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => (
+              <option key={c} value={String(c)}>{`Class ${c}`}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-sm">Section</span>
+          <select name="section" value={form.section || "A"} onChange={handleChange} className="border p-3 rounded w-full mt-1">
+            {["A","B","C","D","E","F"].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
 
         <button
           type="submit"

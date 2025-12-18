@@ -34,8 +34,7 @@ export default function Sidebar() {
     { name: "Face Attendance", path: "/face-attendance", icon: <FiCamera /> },
     { name: "Attendance Records", path: "/admin-attendance", icon: <FiClipboard /> },
 
-    { section: "Face Enrollment" },
-    { name: "Enroll Faces", path: "/face-enrollment", icon: <FiUserPlus /> },
+    
 
     { section: "Management" },
     { name: "Students", path: "/students", icon: <FiUsers /> },

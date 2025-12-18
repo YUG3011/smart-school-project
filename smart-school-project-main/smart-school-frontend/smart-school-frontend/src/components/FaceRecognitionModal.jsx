@@ -14,6 +14,7 @@ export default function FaceRecognitionModal({ open = false, onClose = () => {},
   const [lastResult, setLastResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const mounted = useRef(true);
+  const lastMarkedRef = useRef(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -29,70 +30,86 @@ export default function FaceRecognitionModal({ open = false, onClose = () => {},
   }, []);
 
   const handleRecognized = useCallback((rec) => {
+    // rec is normalized: { id, full_id, name, role, distance }
     setLastResult(rec);
-  }, []);
+
+    // Auto-mark attendance once per recognized person during modal session
+    (async () => {
+      if (!rec || busy) return;
+      const uniqueId = rec.person_id || rec.id || rec.full_id;
+      if (!uniqueId) return;
+      if (lastMarkedRef.current === uniqueId) return;
+
+      setBusy(true);
+      try {
+        if (rec.role === "student") {
+          const res = await api.post("/student-attendance/mark", {
+            student_id: uniqueId,
+            date: new Date().toISOString().split("T")[0],
+            status: "present",
+          });
+          if (res && res.data) {
+            lastMarkedRef.current = uniqueId;
+            onMarked(res.data);
+            // keep modal open for continuous recognition
+          }
+        } else if (rec.role === "teacher") {
+          const res = await api.post("/teacher-attendance/mark", {
+            teacher_id: uniqueId,
+            date: new Date().toISOString().split("T")[0],
+            status: "present",
+          });
+          if (res && res.data) {
+            lastMarkedRef.current = uniqueId;
+            onMarked(res.data);
+          }
+        }
+      } catch (err) {
+        console.error("Auto mark failed:", err);
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [busy, onMarked]);
 
   // user clicked Capture & Mark: capture a high-res frame and mark attendance
   const handleCaptureAndMark = async () => {
     if (busy) return;
     setBusy(true);
-
     try {
-      // dispatch the hidden capture button to get high-res data
-      const captureBtn = document.getElementById("recognition_capture");
-      // prepare promise to receive captured data
-      const capturedPromise = new Promise((resolve) => {
-        function onCaptured(ev) {
-          window.removeEventListener("recognition-captured", onCaptured);
-          resolve(ev.detail.dataUrl);
+      if (!lastResult) {
+        alert("No recognition result yet. Please wait for the camera to detect a face.");
+        setBusy(false);
+        return;
+      }
+
+      // lastResult contains {id, full_id, name, role}
+      if (lastResult.role === "student") {
+        const res = await api.post("/student-attendance/mark", {
+          student_id: lastResult.id,
+          date: new Date().toISOString().split("T")[0],
+          status: "present",
+        });
+        if (res && res.data && res.data.success) {
+          alert("Attendance marked for " + (lastResult.name || lastResult.full_id));
+          onMarked(res.data);
+        } else {
+          alert("Failed to mark student attendance.");
         }
-        window.addEventListener("recognition-captured", onCaptured);
-      });
-
-      // click hidden button to produce capture
-      if (captureBtn) {
-        captureBtn.click();
+      } else if (lastResult.role === "teacher") {
+        const res = await api.post("/teacher-attendance/mark", {
+          teacher_id: lastResult.id,
+          date: new Date().toISOString().split("T")[0],
+          status: "present",
+        });
+        if (res && res.data && res.data.success) {
+          alert("Attendance marked for " + (lastResult.name || lastResult.full_id));
+          onMarked(res.data);
+        } else {
+          alert("Failed to mark teacher attendance.");
+        }
       } else {
-        console.warn("capture button not found");
-      }
-
-      const dataUrl = await capturedPromise;
-      if (!dataUrl) {
-        alert("Could not capture image.");
-        setBusy(false);
-        return;
-      }
-
-      // before marking, we may want to re-run recognition on full-res image
-      const recognizeRes = await api.recognizeFace(dataUrl);
-      const payload = (recognizeRes && recognizeRes.data) || {};
-      if (!payload.success) {
-        alert("Recognition failed. Try again.");
-        setBusy(false);
-        return;
-      }
-
-      if (!payload.matched) {
-        // optional: allow enroll flow or show unknown
-        alert("No face recognized. Please enroll the face first or try again.");
-        setBusy(false);
-        return;
-      }
-
-      // payload should contain id and role (e.g., student/teacher)
-      const markPayload = {
-        person_id: payload.id,
-        role: payload.role || "student",
-        // any other required fields your backend needs
-      };
-
-      const markRes = await api.markAttendance(markPayload);
-      if (markRes && markRes.data && markRes.data.success) {
-        alert("Attendance marked successfully.");
-        onMarked(markRes.data); // inform parent
-      } else {
-        // backend responded but didn't succeed
-        alert("Attendance marking failed. Check backend logs.");
+        alert("Unknown role for recognized face.");
       }
     } catch (err) {
       console.error("Capture & Mark error:", err);
@@ -113,48 +130,23 @@ export default function FaceRecognitionModal({ open = false, onClose = () => {},
         right: 0,
         bottom: 0,
         zIndex: 2000,
-        background: "rgba(0,0,0,0.5)",
+        background: "rgba(0,0,0,0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: 16,
       }}
     >
-      <div style={{ width: 760, background: "#fff", borderRadius: 6, padding: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <h3 style={{ margin: 0 }}>Face Recognition Attendance</h3>
+      <div style={{ width: 720, background: "#fff", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", alignItems: 'center' }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: '100%', marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>Face Recognition</h3>
           <button className="btn btn-sm btn-secondary" onClick={onClose}>
             Close
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: 12 }}>
-          <div>
-            <RecognitionCamera onRecognized={handleRecognized} />
-          </div>
-
-          <div style={{ flex: 1 }}>
-            <div style={{ marginBottom: 10 }}>
-              <strong>Last Recognition:</strong>
-              <div style={{ marginTop: 6 }}>
-                {lastResult ? (
-                  <div>
-                    <div>Matched: {String(lastResult.matched)}</div>
-                    <div>Name: {lastResult.name || "-"}</div>
-                    <div>ID: {lastResult.id || "-"}</div>
-                    <div>Role: {lastResult.role || "-"}</div>
-                  </div>
-                ) : (
-                  <div>No recent recognition</div>
-                )}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 20 }}>
-              <button className="btn btn-success" onClick={handleCaptureAndMark} disabled={busy}>
-                {busy ? "Processing..." : "Capture & Mark"}
-              </button>
-            </div>
-          </div>
+        <div style={{ display: "flex", gap: 12, flex: 1, width: '100%', justifyContent: 'center', paddingBottom: 8 }}>
+          <RecognitionCamera onRecognized={handleRecognized} autoRecognize={true} showControls={false} />
         </div>
       </div>
     </div>

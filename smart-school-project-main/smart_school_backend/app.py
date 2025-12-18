@@ -58,7 +58,7 @@ with app.app_context():
     create_face_embeddings_table()
 
 # =====================================================================
-# 5. IMPORT BLUEPRINTS
+# 5. IMPORT EXISTING BLUEPRINTS
 # =====================================================================
 def safe_import_route(module_path, fallback_path, obj):
     """Safely import modules with fallback."""
@@ -68,7 +68,6 @@ def safe_import_route(module_path, fallback_path, obj):
     except:
         mod = __import__(fallback_path, fromlist=[obj])
         return getattr(mod, obj)
-
 
 auth_bp = safe_import_route("smart_school_backend.routes.auth", "routes.auth", "bp")
 students_bp = safe_import_route("smart_school_backend.routes.students", "routes.students", "bp")
@@ -89,14 +88,23 @@ timetable_bp = safe_import_route("smart_school_backend.routes.timetable", "route
 chatbot_bp = safe_import_route("smart_school_backend.routes.chatbot", "routes.chatbot", "chatbot_bp")
 
 # =====================================================================
-# 6. JWT SETUP
+# 6. IMPORT UNIFIED ENROLLMENT ROUTE
+# =====================================================================
+from smart_school_backend.routes.enrollment import enrollment_bp
+
+# =====================================================================
+# 7. IMPORT UNIFIED RECOGNITION ROUTE (NEW)
+# =====================================================================
+from smart_school_backend.routes.recognition import recognition_bp
+
+# =====================================================================
+# 8. JWT SETUP
 # =====================================================================
 from flask_jwt_extended import JWTManager
-
 jwt = JWTManager(app)
 
 # =====================================================================
-# 7. CORS
+# 9. CORS CONFIG
 # =====================================================================
 CORS(
     app,
@@ -109,7 +117,7 @@ CORS(
 )
 
 # =====================================================================
-# 8. REGISTER BLUEPRINTS
+# 10. REGISTER ROUTES
 # =====================================================================
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(students_bp, url_prefix="/api/students")
@@ -129,15 +137,19 @@ app.register_blueprint(realtime_attendance_bp, url_prefix="/api/realtime-attenda
 app.register_blueprint(timetable_bp, url_prefix="/api/timetable")
 app.register_blueprint(chatbot_bp, url_prefix="/api/chatbot")
 
+# NEW Unified Routes
+app.register_blueprint(enrollment_bp, url_prefix="/api/face")
+app.register_blueprint(recognition_bp, url_prefix="/api/face")
+
 # =====================================================================
-# 9. HEALTH CHECK
+# 11. HEALTH CHECK ROUTE
 # =====================================================================
 @app.route("/")
 def home():
     return {"status": "running", "message": "Smart School Backend Running"}, 200
 
 # =====================================================================
-# 10. DEBUG TOKEN
+# 12. DEBUG USER TOKEN
 # =====================================================================
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
@@ -148,12 +160,12 @@ def get_me():
     return {"identity": get_jwt_identity(), "claims": get_jwt()}, 200
 
 # =====================================================================
-# 11. CLOSE DB
+# 13. CLOSE DB
 # =====================================================================
 app.teardown_appcontext(close_db)
 
 # =====================================================================
-# 12. RUN SERVER
+# 14. RUN SERVER
 # =====================================================================
 if __name__ == "__main__":
     app.run(debug=True)

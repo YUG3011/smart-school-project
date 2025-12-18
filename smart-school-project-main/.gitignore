@@ -1,0 +1,9 @@
+venv/
+*.pyc
+__pycache__/
+school.db
+smart-school-backend/venv/
+node_modules/
+venv310/
+__pycache__/
+*.pyc

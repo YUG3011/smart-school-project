@@ -14,13 +14,12 @@ const AppLayout = ({ children }) => {
   const toggleSidebarMobile = () => setSidebarOpen(!sidebarOpen);
 
   // ---------------- MENU DEFINITIONS ----------------
-  const adminMenu = [
+    const adminMenu = [
     { label: "Dashboard", path: "/admin/dashboard" },
     { label: "Mark Attendance", path: "/admin/attendance" },
     { label: "Students", path: "/admin/students" },
     { label: "Teachers", path: "/admin/teachers" },
     { label: "Timetable", path: "/admin/timetable" },
-    { label: "Enroll Faces", path: "/admin/face-enrollment" },
     { label: "AI Reports", path: "/admin/ai-reports" },
     { label: "Chatbot", path: "/chatbot" },
   ];

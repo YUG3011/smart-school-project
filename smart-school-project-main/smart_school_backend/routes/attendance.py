@@ -23,18 +23,87 @@ attendance_view_bp = Blueprint("attendance_view", __name__)
 def mark_attendance():
     """
     Manual attendance marking.
-    Expects JSON: { "student_id": 1, "date": "2025-12-09", "status": "present" }
+    Supports two payload shapes:
+      - { "student_id": 1, "date": "YYYY-MM-DD", "status": "present" }
+      - { "id": 10001, "type": "student" }   (admin shorthand: marks today as present)
     """
     data = request.get_json() or {}
+    db = get_db()
+    cur = db.cursor()
+
+    # Admin shorthand: { id, type }
+    if data.get("id") and data.get("type"):
+        pid = data.get("id")
+        ptype = data.get("type")
+        from datetime import date as date_module
+        today = date_module.today().isoformat()
+
+        try:
+            if ptype == "student":
+                # pid may be numeric student id or full_id like ST10001
+                try:
+                    sid = int(pid)
+                except Exception:
+                    # if full_id like ST10001, extract numeric part
+                    sid = int(str(pid).replace("ST", "")) - 10000
+
+                cur.execute(
+                    "SELECT id, class_name FROM students WHERE id=?",
+                    (sid,)
+                )
+                s = cur.fetchone()
+                if not s:
+                    return jsonify({"error": "Student not found"}), 404
+
+                # idempotent insert
+                cur.execute(
+                    "SELECT id FROM student_attendance WHERE student_id = ? AND date = ?",
+                    (s["id"], today),
+                )
+                if not cur.fetchone():
+                    cur.execute(
+                        "INSERT INTO student_attendance (student_id, class_name, date, status, marked_at) VALUES (?, ?, ?, 'present', ?)",
+                        (s["id"], s["class_name"], today, datetime.utcnow().isoformat()),
+                    )
+                    db.commit()
+
+                return jsonify({"success": True, "marked": {"id": s["id"], "date": today}}), 200
+
+            elif ptype == "teacher":
+                try:
+                    tid = int(pid)
+                except Exception:
+                    tid = int(str(pid).replace("T", "")) - 1000
+
+                cur.execute("SELECT id FROM teachers WHERE id=?", (tid,))
+                t = cur.fetchone()
+                if not t:
+                    return jsonify({"error": "Teacher not found"}), 404
+
+                cur.execute(
+                    "SELECT id FROM teacher_attendance WHERE teacher_id = ? AND date = ?",
+                    (t["id"], today),
+                )
+                if not cur.fetchone():
+                    cur.execute(
+                        "INSERT INTO teacher_attendance (teacher_id, date, status, marked_at) VALUES (?, ?, 'present', ?)",
+                        (t["id"], today, datetime.utcnow().isoformat()),
+                    )
+                    db.commit()
+
+                return jsonify({"success": True, "marked": {"id": t["id"], "date": today}}), 200
+
+        except Exception as e:
+            current_app.logger.error("mark_attendance shorthand failed: %s", e)
+            return jsonify({"error": "Failed to mark attendance"}), 500
+
+    # Legacy / explicit payload
     student_id = data.get("student_id")
     date = data.get("date")
     status = data.get("status", "present")
 
     if not student_id or not date:
         return jsonify({"error": "student_id and date are required"}), 400
-
-    db = get_db()
-    cur = db.cursor()
 
     # Upsert pattern: if already exists for that date, update; else insert
     try:
@@ -91,16 +160,17 @@ def recent_attendance():
     records = []
 
     try:
-        # This query is generic; adjust table/column names if needed.
+        # Combine recent student and teacher attendance into a single feed.
         cur.execute(
             """
-            SELECT sa.date,
-                   s.name,
-                   s.class_name,
-                   sa.status
-            FROM student_attendance AS sa
-            JOIN students AS s ON s.id = sa.student_id
-            ORDER BY sa.date DESC
+            SELECT sa.marked_at as marked_at, s.name as name, 'student' as role, sa.student_id as id, sa.class_name as class_name, sa.status as status
+            FROM student_attendance sa
+            JOIN students s ON s.id = sa.student_id
+            UNION ALL
+            SELECT ta.marked_at as marked_at, t.name as name, 'teacher' as role, ta.teacher_id as id, NULL as class_name, ta.status as status
+            FROM teacher_attendance ta
+            JOIN teachers t ON t.id = ta.teacher_id
+            ORDER BY marked_at DESC
             LIMIT ?
             """,
             (limit,),
@@ -108,12 +178,30 @@ def recent_attendance():
         rows = cur.fetchall()
 
         for row in rows:
+            marked_at = row[0] or ""
+            date_part = marked_at.split("T")[0] if "T" in marked_at else (marked_at.split(" ")[0] if marked_at else "")
+            time_part = marked_at.split("T")[1].split(".")[0] if "T" in marked_at else (marked_at.split(" ")[1] if len(marked_at.split(" "))>1 else "")
+
+            # Format full id: students -> ST10001, teachers -> T1001
+            role = row[2]
+            pid = row[3]
+            if role == "student" and pid is not None:
+                full_id = f"ST{10000 + int(pid)}"
+            elif role == "teacher" and pid is not None:
+                full_id = f"T{1000 + int(pid)}"
+            else:
+                full_id = None
+
             records.append(
                 {
-                    "date": row[0],
+                    "date": date_part,
+                    "time": time_part,
                     "name": row[1],
-                    "class_name": row[2],
-                    "status": row[3],
+                    "type": row[2],
+                    "id": pid,
+                    "full_id": full_id,
+                    "class_name": row[4],
+                    "status": row[5],
                 }
             )
 
@@ -124,7 +212,7 @@ def recent_attendance():
         )
         records = []
 
-    return jsonify({"data": records}), 200
+    return jsonify({"records": records}), 200
 
 
 # -------------------------------------------------------------------
@@ -152,6 +240,35 @@ def today_attendance_count():
         count = cur.fetchone()[0] or 0
     except Exception as e:
         current_app.logger.warning("today_attendance_count failed: %s", e)
+        count = 0
+
+    return jsonify({"count": count}), 200
+
+
+# -------------------------------------------------------------------
+# ADMIN DASHBOARD → TODAY'S TEACHERS PRESENT COUNT
+# -------------------------------------------------------------------
+@bp.route("/teachers/today", methods=["GET"])
+@jwt_required()
+def teachers_today_count():
+    """
+    Get count of teachers marked present today.
+    GET /api/attendance/teachers/today  →  { "count": 3 }
+    """
+    from datetime import date as date_module
+
+    today = date_module.today().strftime("%Y-%m-%d")
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute(
+            "SELECT COUNT(*) FROM teacher_attendance WHERE date = ? AND status = 'present'",
+            (today,),
+        )
+        count = cur.fetchone()[0] or 0
+    except Exception as e:
+        current_app.logger.warning("teachers_today_count failed: %s", e)
         count = 0
 
     return jsonify({"count": count}), 200
@@ -209,7 +326,7 @@ def teacher_recent_attendance(teacher_id):
         )
         records = []
 
-    return jsonify({"data": records}), 200
+    return jsonify({"records": records}), 200
 
 
 # -------------------------------------------------------------------

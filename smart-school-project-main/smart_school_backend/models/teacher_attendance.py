@@ -10,10 +10,20 @@ def create_teacher_attendance_table():
             teacher_id INTEGER NOT NULL,
             date TEXT NOT NULL,
             status TEXT NOT NULL,
-            marked_at TEXT NOT NULL,
+            marked_at TEXT,
             FOREIGN KEY (teacher_id) REFERENCES teachers(id)
         )
     """)
+
+    # Migration: if existing table lacks 'marked_at', add the column
+    try:
+        cursor.execute("PRAGMA table_info(teacher_attendance)")
+        cols = [r[1] for r in cursor.fetchall()]
+        if 'marked_at' not in cols:
+            cursor.execute("ALTER TABLE teacher_attendance ADD COLUMN marked_at TEXT")
+    except Exception:
+        # best-effort migration; ignore errors to avoid blocking startup
+        pass
 
     db.commit()
 

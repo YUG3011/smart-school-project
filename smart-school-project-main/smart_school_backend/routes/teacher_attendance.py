@@ -1,7 +1,7 @@
 # smart_school_backend/routes/teacher_attendance.py
 
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from utils.db import get_db
 from datetime import datetime, date as date_module
 
@@ -28,12 +28,19 @@ def create_teacher_attendance_table():
 @bp.route("/mark", methods=["POST"])
 @jwt_required()
 def mark_teacher_attendance():
+    # `create_access_token` stores identity as the user id (string) and puts
+    # role/email into additional claims. Read claims via `get_jwt()`.
     identity = get_jwt_identity()
+    claims = get_jwt()
 
-    if identity["role"] != "teacher":
+    role = claims.get("role") if isinstance(claims, dict) else None
+    if role != "teacher":
         return jsonify({"error": "Only teachers can mark attendance"}), 403
 
-    teacher_id = identity["id"]
+    try:
+        teacher_id = int(identity)
+    except Exception:
+        teacher_id = identity
     today = datetime.now().strftime("%Y-%m-%d")
 
     db = get_db()
