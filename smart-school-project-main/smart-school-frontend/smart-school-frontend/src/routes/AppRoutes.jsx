@@ -7,8 +7,7 @@ import AppLayout from "../components/layout/AppLayout";
 /* LOGIN */
 import LoginPage from "../pages/Login/LoginPage";
 
-/* UNIVERSAL ATTENDANCE */
-import UniversalAttendance from "../pages/Attendance/UniversalAttendance";
+
 
 /* ADMIN */
 import AdminDashboard from "../pages/Admin/AdminDashboard";
@@ -53,16 +52,6 @@ export default function AppRoutes() {
           {/* DEFAULT REDIRECT */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
-
-          {/* UNIVERSAL ATTENDANCE */}
-          <Route
-            path="/face-attendance"
-            element={
-              <ProtectedRoute>
-                <AppLayout><UniversalAttendance /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
 
           {/* ---------------- ADMIN ROUTES ---------------- */}
 

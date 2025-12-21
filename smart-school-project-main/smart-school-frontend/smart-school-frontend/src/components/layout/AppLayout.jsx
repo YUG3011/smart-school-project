@@ -19,7 +19,6 @@ const AppLayout = ({ children }) => {
   const adminMenu = [
     { label: "Dashboard", path: "/admin/dashboard", icon: <FiHome /> },
     { section: "Attendance" },
-    { label: "Face Attendance", path: "/face-attendance", icon: <FiCamera /> },
     { label: "Attendance Records", path: "/admin/attendance", icon: <FiClipboard /> },
     { section: "Management" },
     { label: "Students", path: "/admin/students", icon: <FiUsers /> },
@@ -35,7 +34,6 @@ const AppLayout = ({ children }) => {
   const teacherMenu = [
     { label: "Dashboard", path: "/teacher/dashboard", icon: <FiHome /> },
     { section: "Attendance" },
-    { label: "Mark Own Attendance", path: "/face-attendance", icon: <FiCamera /> },
     { label: "Attendance Records", path: "/teacher/attendance", icon: <FiClipboard /> },
     { section: "Students" },
     { label: "Enroll Student", path: "/teacher/add-student", icon: <FiUserPlus /> },
@@ -51,7 +49,6 @@ const AppLayout = ({ children }) => {
   const studentMenu = [
     { label: "Dashboard", path: "/student/dashboard", icon: <FiHome /> },
     { section: "Attendance" },
-    { label: "Face Attendance", path: "/face-attendance", icon: <FiCamera /> },
     { label: "My Attendance", path: "/student/my-attendance", icon: <FiClipboard /> },
     { section: "Academics" },
     { label: "My Timetable", path: "/student/timetable", icon: <FiBookOpen /> },
