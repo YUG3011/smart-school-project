@@ -7,11 +7,13 @@ export default function AddTimetable() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    class_name: "",
+    class_name: "1",
+    section: "a",
     subject: "",
     teacher_name: "",
-    day: "",
-    time: "",
+    day: "Monday",
+    start_time: "",
+    end_time: "",
   });
 
   const handleChange = (e) => {
@@ -22,26 +24,39 @@ export default function AddTimetable() {
     e.preventDefault();
 
     try {
-      await API.post("/timetable", form);
-      navigate("/timetable");
+      await API.post("/timetable/", form);
+      navigate("/admin/timetable");
     } catch (err) {
       console.error("Add timetable failed:", err);
     }
   };
+
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const classes = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+  const sections = ["a", "b", "c", "d", "e", "f"];
 
   return (
     <div className="p-6 max-w-lg">
       <h2 className="text-2xl font-semibold mb-5">Add Timetable Entry</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
-        <input
+        <select
           name="class_name"
-          placeholder="Class Name"
           className="w-full border p-3 rounded"
           value={form.class_name}
           onChange={handleChange}
-        />
+        >
+          {classes.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+
+        <select
+          name="section"
+          className="w-full border p-3 rounded"
+          value={form.section}
+          onChange={handleChange}
+        >
+          {sections.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+        </select>
 
         <input
           name="subject"
@@ -59,19 +74,30 @@ export default function AddTimetable() {
           onChange={handleChange}
         />
 
-        <input
+        <select
           name="day"
-          placeholder="Day (e.g., Monday)"
           className="w-full border p-3 rounded"
           value={form.day}
+          onChange={handleChange}
+        >
+          {days.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+
+        <input
+          type="time"
+          name="start_time"
+          placeholder="Start Time"
+          className="w-full border p-3 rounded"
+          value={form.start_time}
           onChange={handleChange}
         />
 
         <input
-          name="time"
-          placeholder="Time (e.g., 10:00 AM)"
+          type="time"
+          name="end_time"
+          placeholder="End Time"
           className="w-full border p-3 rounded"
-          value={form.time}
+          value={form.end_time}
           onChange={handleChange}
         />
 

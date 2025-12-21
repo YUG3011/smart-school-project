@@ -9,7 +9,7 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS face_embeddings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     role TEXT NOT NULL,
-    face_id TEXT NOT NULL UNIQUE,
+    person_id TEXT NOT NULL UNIQUE,
     name TEXT,
     email TEXT,
     class_name TEXT,

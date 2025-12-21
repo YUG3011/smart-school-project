@@ -1,48 +1,60 @@
-# face_engine/encoder.py
-import face_recognition
-import numpy as np
-import cv2
 import base64
-import io
+import cv2
+import numpy as np
+import face_recognition
+from io import BytesIO
+from PIL import Image
 
-def _b64_to_image(b64_string):
+def generate_embedding(image_base64: str):
     """
-    Accepts data URL or raw base64 string and returns BGR OpenCV image.
+    Takes base64 image string and returns a 128-d face embedding (np.ndarray)
+    Returns None if no face is detected or an error occurs.
     """
-    if b64_string.startswith("data:"):
-        # data:image/png;base64,.....
-        b64_string = b64_string.split(",")[1]
-
-    binary = base64.b64decode(b64_string)
-    arr = np.frombuffer(binary, dtype=np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)  # BGR
-    return img
-
-def encode_image_base64(b64_string):
-    """
-    Convert base64 image to face embedding (128-d numpy array).
-    Returns a list of embeddings (there may be multiple faces) — each embedding is a list of floats.
-    """
+    print("Encoder: 1. Processing image string")
     try:
-        img_bgr = _b64_to_image(b64_string)
-        # convert BGR to RGB for face_recognition
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        # detect face locations
-        locations = face_recognition.face_locations(img_rgb, model="hog")  # hog is faster; you can change to "cnn" if available
-        if len(locations) == 0:
-            return []
-        encodings = face_recognition.face_encodings(img_rgb, known_face_locations=locations)
-        # convert to lists for JSON-serializable storage
-        embeddings = [enc.tolist() for enc in encodings]
-        return embeddings
-    except Exception as e:
-        raise
+        if "," in image_base64:
+            image_base64 = image_base64.split(",")[1]
 
-def compare_embeddings(embedding_a, embedding_b):
-    """
-    Compute euclidean distance between two embeddings (lists or numpy arrays).
-    Smaller = more similar.
-    """
-    a = np.array(embedding_a)
-    b = np.array(embedding_b)
-    return float(np.linalg.norm(a - b))
+        print("Encoder: 2. Decoding base64")
+        image_bytes = base64.b64decode(image_base64)
+        
+        print("Encoder: 3. Opening image with PIL")
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        print(f"Encoder: Original image size: {image.width}x{image.height}")
+
+        max_size = 800
+        if image.width > max_size or image.height > max_size:
+            ratio = max_size / max(image.width, image.height)
+            new_width = int(image.width * ratio)
+            new_height = int(image.height * ratio)
+
+            if new_width == 0 or new_height == 0:
+                print(f"Error: Invalid resize dimensions calculated ({new_width}x{new_height}). Skipping face recognition.")
+                return None
+
+            print(f"Encoder: Resizing to {new_width}x{new_height}")
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+        image_np = np.array(image)
+        
+        print("Encoder: 4. Detecting face locations")
+        face_locations = face_recognition.face_locations(image_np)
+        print(f"Encoder: 5. Found {len(face_locations)} face(s)")
+
+        if not face_locations:
+            return None
+
+        print("Encoder: 6. Generating face encodings")
+        encodings = face_recognition.face_encodings(image_np, face_locations)
+
+        if not encodings:
+            print("Encoder: 7. No encodings generated")
+            return None
+        
+        print("Encoder: 8. Returning first encoding")
+        return encodings[0].astype(np.float32)
+
+    except Exception as e:
+        # Log the error silently for debugging, without crashing
+        print(f"Error in generate_embedding: {e}")
+        return None

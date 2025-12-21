@@ -1,74 +1,72 @@
-# smart_school_backend/routes/teacher_attendance.py
-
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from utils.db import get_db
+import sqlite3
+from flask import Blueprint, request, jsonify, current_app, g
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from smart_school_backend.utils.db import get_db
 from datetime import datetime, date as date_module
 
-bp = Blueprint("teacher_attendance_bp", __name__)
+bp = Blueprint("teacher_attendance", __name__)
 
-# Create table if missing
-def create_teacher_attendance_table():
-    db = get_db()
-    cur = db.cursor()
+def setup_teacher_attendance_table():
+    if 'teacher_attendance_table_checked' not in g:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS teacher_attendance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                teacher_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                status TEXT NOT NULL,
+                marked_at TEXT,
+                UNIQUE(teacher_id, date)
+            )
+        """)
+        db.commit()
+        g.teacher_attendance_table_checked = True
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS teacher_attendance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            teacher_id INTEGER NOT NULL,
-            date TEXT NOT NULL,
-            time TEXT NOT NULL,
-            status TEXT NOT NULL
-        )
-    """)
-
-    db.commit()
-
+@bp.before_request
+def before_request_handler():
+    setup_teacher_attendance_table()
 
 @bp.route("/mark", methods=["POST"])
 @jwt_required()
 def mark_teacher_attendance():
-    # `create_access_token` stores identity as the user id (string) and puts
-    # role/email into additional claims. Read claims via `get_jwt()`.
-    identity = get_jwt_identity()
-    claims = get_jwt()
+    """
+    Marks teacher attendance for today. It's idempotent, so it won't
+    create duplicate entries for the same teacher on the same day.
+    """
+    data = request.get_json() or {}
+    teacher_id = data.get("teacher_id")
 
-    role = claims.get("role") if isinstance(claims, dict) else None
-    if role != "teacher":
-        return jsonify({"error": "Only teachers can mark attendance"}), 403
+    if not teacher_id:
+        return jsonify({"error": "teacher_id is required"}), 400
 
-    try:
-        teacher_id = int(identity)
-    except Exception:
-        teacher_id = identity
-    today = datetime.now().strftime("%Y-%m-%d")
-
+    today = date_module.today().isoformat()
     db = get_db()
     cur = db.cursor()
 
-    # Check if attendance already exists
-    cur.execute(
-        "SELECT id FROM teacher_attendance WHERE teacher_id=? AND date=?",
-        (teacher_id, today),
-    )
-    exists = cur.fetchone()
+    try:
+        cur.execute(
+            """
+            INSERT INTO teacher_attendance (teacher_id, date, status, marked_at)
+            VALUES (?, ?, 'present', ?)
+            ON CONFLICT(teacher_id, date) DO NOTHING
+            """,
+            (teacher_id, today, datetime.now().isoformat()),
+        )
+        db.commit()
+        
+        if cur.rowcount > 0:
+            return jsonify({"message": "Attendance marked successfully"}), 201
+        else:
+            return jsonify({"message": "Attendance already marked for today"}), 200
 
-    if exists:
-        return jsonify({"message": "Attendance already marked for today"}), 400
-
-    cur.execute("""
-        INSERT INTO teacher_attendance (teacher_id, date, time, status)
-        VALUES (?, ?, ?, ?)
-    """, (
-        teacher_id,
-        today,
-        datetime.now().strftime("%H:%M:%S"),
-        "Present"
-    ))
-
-    db.commit()
-
-    return jsonify({"message": "Attendance marked successfully"}), 200
+    except sqlite3.IntegrityError:
+        # This is a fallback in case the UNIQUE constraint is violated
+        # in a way that ON CONFLICT doesn't catch (unlikely).
+        return jsonify({"message": "Attendance already marked for today"}), 200
+    except Exception as e:
+        current_app.logger.error("Failed to mark teacher attendance: %s", e)
+        return jsonify({"error": "Server error while marking attendance"}), 500
 
 
 @bp.route("/records", methods=["GET"])
@@ -81,7 +79,7 @@ def get_teacher_attendance_records():
     cur = db.cursor()
 
     cur.execute("""
-        SELECT date, time, status
+        SELECT date, marked_at, status
         FROM teacher_attendance
         WHERE teacher_id=?
         ORDER BY date DESC
@@ -121,4 +119,3 @@ def teacher_attendance_count_today(teacher_id):
         present = 0
 
     return jsonify({"present": present}), 200
-

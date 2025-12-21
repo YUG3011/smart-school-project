@@ -27,13 +27,13 @@ export default function StudentsPage() {
     }
   };
 
-  // Delete student
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this student?")) return;
 
     try {
       await API.delete(`/students/${id}`);
       fetchStudents(); // refresh table
+      window.dispatchEvent(new CustomEvent("entityChanged"));
     } catch (error) {
       console.error("Delete failed:", error);
     }

@@ -1,87 +1,71 @@
-import numpy as np
 from flask import Blueprint, request, jsonify
-from smart_school_backend.face_engine.encoder import encode_image_base64
-from smart_school_backend.face_engine.encoder import compare_embeddings
+import sqlite3
+import numpy as np
+from smart_school_backend.face_engine.encoder import generate_embedding
 from smart_school_backend.utils.db import get_db
 
-recognition_bp = Blueprint("recognition_bp", __name__)
+recognition_bp = Blueprint("recognition", __name__)
 
-# Recommended threshold for 128-d face_recognition embeddings
-MATCH_THRESHOLD = 0.48
-
-
-# =====================================================================
-# UNIFIED RECOGNITION API
-# =====================================================================
 @recognition_bp.route("/recognize", methods=["POST"])
 def recognize_face():
-    data = request.get_json() or {}
+    data = request.get_json()
+    image_base64 = data.get("image_base64")
 
-    image_b64 = data.get("image_base64")
-    if not image_b64:
-        return jsonify({"error": "No image provided"}), 400
+    if not image_base64:
+        return jsonify({"error": "Image is required"}), 400
 
-    # --------------------------------------------------------------
-    # 1. Extract face embeddings from the frame
-    # --------------------------------------------------------------
-    embeddings = encode_image_base64(image_b64)
+    try:
+        embedding = generate_embedding(image_base64)
+        if embedding is None:
+            return jsonify({"match": False, "message": "No face detected"}), 200
 
-    if len(embeddings) == 0:
-        return jsonify({"match": False, "message": "No face detected"}), 200
+        conn = get_db()
+        cur = conn.cursor()
 
-    frame_emb = np.array(embeddings[0], dtype=np.float32)
+        rows = cur.execute("""
+            SELECT person_id, role, embedding
+            FROM face_embeddings
+        """).fetchall()
 
-    # --------------------------------------------------------------
-    # 2. Load stored embeddings from DB
-    # --------------------------------------------------------------
-    db = get_db()
-    cur = db.cursor()
+        best_match = None
+        min_distance = 0.6  # threshold
 
-    rows = cur.execute(
-        "SELECT id, person_id, role, name, class_name, section, subject, embedding FROM face_embeddings"
-    ).fetchall()
+        for row in rows:
+            db_embedding = np.frombuffer(row["embedding"], dtype=np.float32)
+            dist = np.linalg.norm(embedding - db_embedding)
 
-    if not rows:
-        return jsonify({"match": False, "message": "No enrolled faces"}), 200
+            if dist < min_distance:
+                min_distance = dist
+                best_match = row
 
-    best_match = None
-    best_distance = 999
+        if not best_match:
+            return jsonify({"match": False}), 200
 
-    # --------------------------------------------------------------
-    # 3. Compare frame embedding with DB embeddings
-    # --------------------------------------------------------------
-    for r in rows:
-        emb_bytes = r["embedding"]
-        db_emb = np.frombuffer(emb_bytes, dtype=np.float32)
+        person_id = best_match["person_id"]
+        role = best_match["role"]
 
-        distance = compare_embeddings(frame_emb, db_emb)
+        if role == "student":
+            user = cur.execute(
+                "SELECT id, name FROM students WHERE id = ?",
+                (person_id,)
+            ).fetchone()
+        else:
+            user = cur.execute(
+                "SELECT id, name FROM teachers WHERE id = ?",
+                (person_id,)
+            ).fetchone()
 
-        if distance < best_distance:
-            best_distance = distance
-            best_match = r
+        if user is None:
+            return jsonify({"match": False, "message": "User not found"}), 200
 
-    # --------------------------------------------------------------
-    # 4. Threshold check — Is it a real match?
-    # --------------------------------------------------------------
-    if best_distance > MATCH_THRESHOLD:
         return jsonify({
-            "match": False,
-            "distance": float(best_distance),
-            "message": "Face not recognized"
-        }), 200
+            "match": True,
+            "id": user["id"],
+            "name": user["name"],
+            "role": role,
+            "distance": float(min_distance)
+        })
 
-    # --------------------------------------------------------------
-    # 5. Build response with student/teacher details
-    # --------------------------------------------------------------
-    response = {
-        "match": True,
-        "distance": float(best_distance),
-        "person_id": best_match["person_id"],
-        "role": best_match["role"],
-        "name": best_match["name"],
-        "class_name": best_match["class_name"],
-        "section": best_match["section"],
-        "subject": best_match["subject"],
-    }
-
-    return jsonify(response), 200
+    except Exception as e:
+        print("Recognition error:", e)
+        return jsonify({"error": "Recognition failed"}), 500

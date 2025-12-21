@@ -32,8 +32,8 @@ def create_face_embeddings_table():
         CREATE TABLE IF NOT EXISTS face_embeddings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             role TEXT NOT NULL,
-            face_id TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
+            person_id TEXT UNIQUE NOT NULL,
+            name TEXT,
             email TEXT,
             class_name TEXT,
             section TEXT,
@@ -51,7 +51,7 @@ def create_face_embeddings_table():
 # 2. STORE OR UPDATE FACE EMBEDDING
 # ========================================================
 
-def store_face_embedding(role, face_id, name, email, class_name, section, embedding):
+def store_face_embedding(role, person_id, name, email, class_name, section, embedding):
     """
     Saves or updates face embeddings in DB.
     The embedding comes as a NumPy array.
@@ -62,16 +62,16 @@ def store_face_embedding(role, face_id, name, email, class_name, section, embedd
     embedding_blob = embedding.astype(np.float32).tobytes()
 
     cur.execute("""
-        INSERT INTO face_embeddings (role, face_id, name, email, class_name, section, embedding)
+        INSERT INTO face_embeddings (role, person_id, name, email, class_name, section, embedding)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(face_id)
+        ON CONFLICT(person_id)
         DO UPDATE SET 
             name = excluded.name,
             email = excluded.email,
             class_name = excluded.class_name,
             section = excluded.section,
             embedding = excluded.embedding
-    """, (role, face_id, name, email, class_name, section, embedding_blob))
+    """, (role, person_id, name, email, class_name, section, embedding_blob))
 
     conn.commit()
     conn.close()
@@ -87,7 +87,7 @@ def load_all_embeddings():
     [
         {
             "role": "student",
-            "face_id": "ST10001",
+            "person_id": "ST10001",
             "name": "Cheta",
             "email": "...",
             "class_name": "...",
@@ -100,7 +100,7 @@ def load_all_embeddings():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT role, face_id, name, email, class_name, section, embedding
+        SELECT role, person_id, name, email, class_name, section, embedding
         FROM face_embeddings
     """)
 
@@ -108,12 +108,12 @@ def load_all_embeddings():
     conn.close()
 
     embeddings = []
-    for role, face_id, name, email, class_name, section, emb_blob in rows:
+    for role, person_id, name, email, class_name, section, emb_blob in rows:
         emb_array = np.frombuffer(emb_blob, dtype=np.float32)
 
         embeddings.append({
             "role": role,
-            "face_id": face_id,
+            "person_id": person_id,
             "name": name,
             "email": email,
             "class_name": class_name,

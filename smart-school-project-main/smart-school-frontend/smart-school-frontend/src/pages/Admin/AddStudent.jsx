@@ -63,6 +63,7 @@ export default function AddStudent() {
         });
       }
 
+      window.dispatchEvent(new CustomEvent("entityChanged"));
       navigate("/admin/students");
     } catch (err) {
       console.error("Add student failed:", err);

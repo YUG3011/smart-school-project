@@ -5,6 +5,7 @@ export default function RecognitionCamera({ onRecognized, autoRecognize = false,
   const videoRef = useRef(null);
   const canvasRef = useRef(null); // hidden capture canvas
   const overlayRef = useRef(null); // visible overlay canvas
+  const streamRef = useRef(null); // persistent stream reference
   const [capturedImage, setCapturedImage] = useState(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -15,6 +16,7 @@ export default function RecognitionCamera({ onRecognized, autoRecognize = false,
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        streamRef.current = stream; // store stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           setIsCameraReady(true);
@@ -67,7 +69,9 @@ export default function RecognitionCamera({ onRecognized, autoRecognize = false,
 
     return () => {
       runningRef.current = false;
-      if (videoRef.current?.srcObject) videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
     };
   }, [autoRecognize, interval]);
 
@@ -192,7 +196,7 @@ export default function RecognitionCamera({ onRecognized, autoRecognize = false,
     <div style={{ textAlign: "center" }}>
       <div style={{ position: "relative", display: "inline-block", width: 480, height: 360 }}>
         <video ref={videoRef} autoPlay playsInline style={{ width: "480px", height: "360px", borderRadius: "8px" }} />
-        <canvas ref={overlayRef} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none", width: '100%', height: '100%' }} />
+        <canvas ref={overlayRef} style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none", width: '480px', height: '360px' }} />
       </div>
 
       <canvas ref={canvasRef} style={{ display: "none" }} />
@@ -210,15 +214,8 @@ export default function RecognitionCamera({ onRecognized, autoRecognize = false,
         )}
       </div>
 
-      {capturedImage && (
-        <div style={{ marginTop: "15px" }}>
-          <h4>Captured Image:</h4>
-          <img src={capturedImage} alt="Captured" style={{ width: "200px", borderRadius: "10px" }} />
-        </div>
-      )}
-
       {result && (
-        <div style={{ marginTop: "20px" }}>
+        <div style={{ marginTop: "20px", maxHeight: "100px", overflow: "auto", border: "1px solid #ccc", borderRadius: "5px", padding: "10px" }}>
           <h4>Result:</h4>
           <pre>{JSON.stringify(result, null, 2)}</pre>
         </div>

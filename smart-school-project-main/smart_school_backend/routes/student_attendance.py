@@ -1,13 +1,13 @@
 # smart_school_backend/routes/student_attendance.py
 
 from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required
+from datetime import datetime, date as date_module
 
 try:
     from smart_school_backend.utils.db import get_db
 except ImportError:
     from utils.db import get_db
-
-from flask_jwt_extended import jwt_required
 
 # Correct blueprint name
 student_attendance_bp = Blueprint("student_attendance", __name__)
@@ -17,42 +17,28 @@ student_attendance_bp = Blueprint("student_attendance", __name__)
 # RECORD ATTENDANCE FOR A STUDENT
 # -------------------------------------------------------------------
 @student_attendance_bp.route("/mark", methods=["POST"])
-@jwt_required()
 def mark_student_attendance():
-    """
-    Example request:
-    POST /api/student-attendance/mark
-
-    {
-        "student_id": 1,
-        "date": "2025-12-09",
-        "status": "present"
-    }
-    """
     data = request.get_json() or {}
-
     student_id = data.get("student_id")
-    date = data.get("date")
     status = data.get("status", "present")
-    class_name = data.get("class_name")
+    date = date_module.today().strftime("%Y-%m-%d")
 
-    if not student_id or not date:
-        return jsonify({"error": "student_id and date required"}), 400
-
-    # If class_name not provided, try to fetch from students table
-    if not class_name:
-        try:
-            cur.execute("SELECT class_name FROM students WHERE id = ?", (student_id,))
-            row = cur.fetchone()
-            class_name = row[0] if row and row[0] else None
-        except Exception:
-            class_name = None
-
-    if not class_name:
-        return jsonify({"error": "class_name required (provide or ensure student has a class_name)"}), 400
+    if not student_id:
+        return jsonify({"error": "student_id is required"}), 400
 
     db = get_db()
     cur = db.cursor()
+
+    # If class_name not provided, try to fetch from students table
+    try:
+        cur.execute("SELECT class_name FROM students WHERE id = ?", (student_id,))
+        row = cur.fetchone()
+        class_name = row[0] if row and row[0] else None
+    except Exception:
+        class_name = None
+
+    if not class_name:
+        return jsonify({"error": "class_name for student not found"}), 400
 
     try:
         # Insert or update attendance (include class_name)
@@ -165,8 +151,6 @@ def student_today(student_id):
 
     Returns: { "status": "present" | "absent" | "Not Marked" }
     """
-    from datetime import date as date_module
-    
     today = date_module.today().strftime("%Y-%m-%d")
     db = get_db()
     cur = db.cursor()
@@ -269,4 +253,3 @@ def student_attendance_overview():
         "absent": absent_count,
         "percentage": percentage
     }), 200
-

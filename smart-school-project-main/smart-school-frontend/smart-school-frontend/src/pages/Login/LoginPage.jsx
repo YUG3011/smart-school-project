@@ -32,7 +32,7 @@ export default function LoginPage() {
       });
 
       const token = response.data.token;
-      const userData = { email, role };
+      const userData = response.data.user || { email, role };
 
       console.log("✓ Login successful!");
       console.log("✓ Token received:", token.substring(0, 30) + "...");
@@ -69,100 +69,86 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-        background: "#eef2f7",
-      }}
+    <div 
+      className="min-h-screen flex items-center justify-center bg-cover bg-center relative"
+      style={{ backgroundImage: "url('https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1986&auto=format&fit=crop')" }}
     >
-      <div
-        style={{
-          width: "360px",
-          padding: "30px",
-          background: "white",
-          borderRadius: "12px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        }}
-      >
-        <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
-          Smart School Login
-        </h2>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <style>
+        {`
+          @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+          }
+          .school-title {
+            animation: float 3s ease-in-out infinite;
+            background: linear-gradient(to right, #2563eb, #0891b2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+          }
+        `}
+      </style>
+      
+      <div className="relative z-10 w-full max-w-md p-8 bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-white/50">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold school-title mb-2">
+            Modern Day School
+          </h1>
+          <p className="text-gray-500 font-medium">Welcome to Smart School</p>
+        </div>
 
         {error && (
-          <p
-            style={{
-              color: "red",
-              textAlign: "center",
-              marginBottom: "10px",
-              fontSize: "14px",
-            }}
-          >
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center font-medium border border-red-200">
             {error}
-          </p>
+          </div>
         )}
 
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-          }}
-        >
-          <option value="admin">Admin</option>
-          <option value="teacher">Teacher</option>
-          <option value="student">Student</option>
-        </select>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Select Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+            >
+              <option value="admin">Admin</option>
+              <option value="teacher">Teacher</option>
+              <option value="student">Student</option>
+            </select>
+          </div>
 
-        <input
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-          }}
-        />
+          <div>
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+            />
+          </div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px",
-            marginBottom: "15px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-          }}
-        />
+          <div>
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+            />
+          </div>
 
-        <button
-          onClick={handleLogin}
-          style={{
-            width: "100%",
-            padding: "12px",
-            background: "#2563eb",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            fontSize: "16px",
-            cursor: "pointer",
-          }}
-        >
-          Login
-        </button>
+          <button
+            onClick={handleLogin}
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+          >
+            Login
+          </button>
+        </div>
+
+        <div className="mt-8 text-center text-xs text-gray-400">
+          © 2025 Modern Day School System
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 // src/pages/Admin/AdminDashboard.jsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import API from "../../services/api";
@@ -22,7 +22,7 @@ export default function AdminDashboard() {
   const [recent, setRecent] = useState([]);
 
   // Fetch Dashboard Summary
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const s = await API.get(`/students/count`);
       const t = await API.get(`/teachers/count`);
@@ -40,33 +40,53 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error("Stats Error:", err);
     }
-  };
+  }, []);
 
   // Fetch recent logs
-  const loadRecent = async () => {
+  const loadRecent = useCallback(async () => {
     try {
       const r = await API.get(`/attendance-view/all?limit=5`);
-      setRecent(r.data.data || []);
+      setRecent(r.data.records || []);
     } catch (err) {
       console.error("Recent logs error:", err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (token) {
-      console.log("✓ Token available, loading stats...");
       loadStats();
       loadRecent();
-    } else {
-      console.log("✗ No token, waiting for authentication...");
     }
-  }, [token]);
+
+    const handleEntityChanged = () => {
+      console.log("Entity changed event received, reloading stats...");
+      loadStats();
+      loadRecent();
+    };
+
+    window.addEventListener("entityChanged", handleEntityChanged);
+
+    return () => {
+      window.removeEventListener("entityChanged", handleEntityChanged);
+    };
+  }, [token, loadStats, loadRecent]);
 
   return (
     <div className="p-4 md:p-6">
 
       {/* Header */}
-      <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        <button
+          onClick={() => {
+            loadStats();
+            loadRecent();
+          }}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+        >
+          Refresh
+        </button>
+      </div>
 
       {/* Top Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

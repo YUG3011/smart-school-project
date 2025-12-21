@@ -10,6 +10,7 @@ def get_db():
     db_path = os.path.abspath(db_path)
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -127,7 +128,9 @@ def delete_student(student_id):
     try:
         conn = get_db()
         cur = conn.cursor()
+        cur.execute("DELETE FROM student_attendance WHERE student_id=?", (student_id,))
         cur.execute("DELETE FROM students WHERE id=?", (student_id,))
+        cur.execute("DELETE FROM face_embeddings WHERE person_id=? AND role='student'", (student_id,))
         conn.commit()
         return jsonify({"message": "Student deleted"}), 200
     except Exception as e:

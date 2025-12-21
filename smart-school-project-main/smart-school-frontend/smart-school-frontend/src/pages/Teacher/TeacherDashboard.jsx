@@ -19,6 +19,8 @@ export default function TeacherDashboard() {
 
   // Fetch Teacher Dashboard Stats
   const loadStats = async () => {
+    if (!user?.id) return;
+
     try {
       const res1 = await API.get(`/teachers/${user.id}/student-count`);
       const res2 = await API.get(`/attendance/teacher/${user.id}/today`);
@@ -36,6 +38,8 @@ export default function TeacherDashboard() {
 
   // Fetch Latest Logs for Teacher
   const loadRecent = async () => {
+    if (!user?.id) return;
+
     try {
       const res = await API.get(
         `/attendance-view/teacher/${user.id}?limit=5`
@@ -54,8 +58,19 @@ export default function TeacherDashboard() {
   return (
     <div className="p-4 md:p-6">
 
-      {/* Header */}
-      <h1 className="text-2xl font-bold mb-4">Teacher Dashboard</h1>
+      {/* Header - Aligned with AdminDashboard style */}
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
+        <button
+          onClick={() => {
+            loadStats();
+            loadRecent();
+          }}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+        >
+          Refresh
+        </button>
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
@@ -70,25 +85,25 @@ export default function TeacherDashboard() {
 
         <ActionButton
           label="Mark Attendance"
-          onClick={() => navigate("/teacher-attendance")}
+          onClick={() => navigate("/teacher/attendance")}
           color="blue"
         />
 
         <ActionButton
           label="Enroll Student"
-          onClick={() => navigate("/teacher-add-student")}
+          onClick={() => navigate("/teacher/add-student")}
           color="green"
         />
 
         <ActionButton
           label="My Timetable"
-          onClick={() => navigate("/teacher-timetable")}
+          onClick={() => navigate("/teacher/timetable")}
           color="purple"
         />
 
         <ActionButton
           label="View Attendance"
-          onClick={() => navigate("/teacher-attendance-records")}
+          onClick={() => navigate("/teacher/attendance")}
           color="orange"
         />
       </div>

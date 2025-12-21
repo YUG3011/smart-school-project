@@ -34,6 +34,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         email TEXT,
+        id_code TEXT,
         class_name TEXT,
         section TEXT
     )
@@ -47,6 +48,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         email TEXT,
+        id_code TEXT,
         subject TEXT
     )
     """)
@@ -58,7 +60,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS face_embeddings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         role TEXT NOT NULL,
-        face_id TEXT NOT NULL UNIQUE,
+        person_id TEXT NOT NULL UNIQUE,
         name TEXT,
         email TEXT,
         class_name TEXT,
@@ -105,14 +107,34 @@ def init_db():
     """)
 
     # ----------------------------------------------------
-    # TEACHER ATTENDANCE (unchanged)
+    # TEACHER ATTENDANCE (Updated with constraints)
     # ----------------------------------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS teacher_attendance (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        teacher_id INTEGER,
-        date TEXT,
-        status TEXT
+        teacher_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        status TEXT NOT NULL,
+        marked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+        UNIQUE(teacher_id, date)
+    )
+    """)
+
+    # ----------------------------------------------------
+    # TIMETABLE TABLE
+    # ----------------------------------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS timetable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_name TEXT NOT NULL,
+        section TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        teacher_name TEXT NOT NULL,
+        day TEXT NOT NULL,
+        start_time TEXT,
+        end_time TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 

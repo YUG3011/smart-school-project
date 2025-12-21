@@ -59,57 +59,58 @@ export default function UniversalAttendance() {
     setTimeout(recognizeLoop, 500);
   };
 
-  // NEW UNIFIED RECOGNITION ENDPOINT
   const recognizeFace = async () => {
+    if (processing) return;
     setProcessing(true);
 
     const frame = captureFrame();
 
     try {
-      const res = await api.post("/face/recognize", {
-        image_base64: frame
-      });
-
+      const res = await api.post("/face/recognize", { image_base64: frame });
       const data = res.data;
 
-      if (data.match === true) {
+      if (data.match) {
         drawBoundingBox("green");
-        setStatusMessage(`Recognized: ${data.name} (${data.role})`);
+        setStatusMessage(`Recognized: ${data.name}. Marking attendance...`);
+        
+        await markAttendance(data.role, data.id);
+        
+        // Pause for 2 seconds after successful recognition
+        setTimeout(() => {
+          setProcessing(false);
+          setStatusMessage("Ready for next recognition.");
+        }, 2000);
 
-        await markAttendance(data);
       } else {
         drawBoundingBox("red");
         setStatusMessage("Unknown Face");
+        setProcessing(false);
       }
     } catch (err) {
       console.error("Recognition error:", err);
       drawBoundingBox("red");
-      setStatusMessage("Error processing face");
+      setStatusMessage("Error during recognition.");
+      setProcessing(false);
     }
-
-    setProcessing(false);
   };
 
-  const markAttendance = async (data) => {
-    try {
-      if (data.role === "student") {
-        await api.post("/student-attendance/mark", {
-          student_id: data.id,
-          date: new Date().toISOString().split("T")[0],
-          status: "present"
-        });
-      } else if (data.role === "teacher") {
-        await api.post("/teacher-attendance/mark", {
-          teacher_id: data.id,
-          date: new Date().toISOString().split("T")[0],
-          status: "present"
-        });
-      }
+  const markAttendance = async (role, personId) => {
+    const endpoint =
+      role === "student"
+        ? "/student-attendance/mark"
+        : "/teacher-attendance/mark";
+    const payload =
+      role === "student"
+        ? { student_id: personId }
+        : { teacher_id: personId };
 
-      setStatusMessage("Attendance marked");
+    try {
+      await api.post(endpoint, payload);
+      setStatusMessage(`Attendance marked for ${role} ID: ${personId}`);
+      window.dispatchEvent(new CustomEvent("entityChanged"));
     } catch (err) {
       console.error("Attendance error:", err);
-      setStatusMessage("Error marking attendance");
+      setStatusMessage("Error marking attendance.");
     }
   };
 

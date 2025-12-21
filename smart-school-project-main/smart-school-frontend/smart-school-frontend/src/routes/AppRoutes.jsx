@@ -29,6 +29,8 @@ import TeacherDashboard from "../pages/Teacher/TeacherDashboard";
 import TeacherTimetable from "../pages/Teacher/TeacherTimetable";
 import TeacherEnrollStudent from "../pages/Teacher/TeacherEnrollStudent";
 import TeacherAttendancePage from "../pages/Teacher/TeacherAttendancePage";
+import UploadNotesPage from "../pages/Teacher/UploadNotesPage";
+import TeacherAiReportsPage from "../pages/Teacher/TeacherAiReportsPage";
 
 /* STUDENT */
 import StudentDashboard from "../pages/Student/StudentDashboard";
@@ -208,6 +210,24 @@ export default function AppRoutes() {
             element={
               <ProtectedRoute allowedRoles={["teacher"]}>
                 <AppLayout><TeacherAttendancePage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/teacher/upload-notes"
+            element={
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <AppLayout><UploadNotesPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/teacher/ai-reports"
+            element={
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <AppLayout><TeacherAiReportsPage /></AppLayout>
               </ProtectedRoute>
             }
           />

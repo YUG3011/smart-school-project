@@ -12,112 +12,61 @@ Props:
 
 export default function FaceRecognitionModal({ open = false, onClose = () => {}, onMarked = () => {} }) {
   const [lastResult, setLastResult] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const mounted = useRef(true);
+  const isMarkingRef = useRef(false);
   const lastMarkedRef = useRef(null);
 
   useEffect(() => {
-    mounted.current = true;
-    const handler = (ev) => {
-      // when a capture is triggered globally (hidden button), we receive a dataUrl
-      // not used currently
-    };
-    window.addEventListener("recognition-captured", handler);
-    return () => {
-      mounted.current = false;
-      window.removeEventListener("recognition-captured", handler);
-    };
-  }, []);
+    // Reset state when modal opens
+    if (open) {
+      setLastResult(null);
+      isMarkingRef.current = false;
+      lastMarkedRef.current = null;
+    }
+  }, [open]);
 
   const handleRecognized = useCallback((rec) => {
-    // rec is normalized: { id, full_id, name, role, distance }
     setLastResult(rec);
 
-    // Auto-mark attendance once per recognized person during modal session
+    // Prevent duplicate marking if a request is already in flight
+    if (isMarkingRef.current) {
+      return;
+    }
+
     (async () => {
-      if (!rec || busy) return;
-      const uniqueId = rec.person_id || rec.id || rec.full_id;
+      if (!rec) return;
+      const uniqueId = rec.id || rec.person_id;
       if (!uniqueId) return;
+
+      // Prevent re-marking the same person in the same modal session
       if (lastMarkedRef.current === uniqueId) return;
 
-      setBusy(true);
+      isMarkingRef.current = true;
       try {
+        let res = null;
         if (rec.role === "student") {
-          const res = await api.post("/student-attendance/mark", {
-            student_id: uniqueId,
-            date: new Date().toISOString().split("T")[0],
-            status: "present",
-          });
-          if (res && res.data) {
-            lastMarkedRef.current = uniqueId;
-            onMarked(res.data);
-            // keep modal open for continuous recognition
-          }
+          res = await api.post("/student-attendance/mark", { student_id: uniqueId });
         } else if (rec.role === "teacher") {
-          const res = await api.post("/teacher-attendance/mark", {
-            teacher_id: uniqueId,
-            date: new Date().toISOString().split("T")[0],
-            status: "present",
-          });
-          if (res && res.data) {
-            lastMarkedRef.current = uniqueId;
+          res = await api.post("/teacher-attendance/mark", { teacher_id: uniqueId });
+        } else {
+          console.warn("Unknown role for recognized face:", rec.role);
+          return;
+        }
+
+        if (res && res.data) {
+          console.log(`Attendance marked for ${rec.name} (${rec.role})`);
+          lastMarkedRef.current = uniqueId;
+          if (onMarked) {
             onMarked(res.data);
           }
+          window.dispatchEvent(new CustomEvent("entityChanged"));
         }
       } catch (err) {
         console.error("Auto mark failed:", err);
       } finally {
-        setBusy(false);
+        isMarkingRef.current = false;
       }
     })();
-  }, [busy, onMarked]);
-
-  // user clicked Capture & Mark: capture a high-res frame and mark attendance
-  const handleCaptureAndMark = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (!lastResult) {
-        alert("No recognition result yet. Please wait for the camera to detect a face.");
-        setBusy(false);
-        return;
-      }
-
-      // lastResult contains {id, full_id, name, role}
-      if (lastResult.role === "student") {
-        const res = await api.post("/student-attendance/mark", {
-          student_id: lastResult.id,
-          date: new Date().toISOString().split("T")[0],
-          status: "present",
-        });
-        if (res && res.data && res.data.success) {
-          alert("Attendance marked for " + (lastResult.name || lastResult.full_id));
-          onMarked(res.data);
-        } else {
-          alert("Failed to mark student attendance.");
-        }
-      } else if (lastResult.role === "teacher") {
-        const res = await api.post("/teacher-attendance/mark", {
-          teacher_id: lastResult.id,
-          date: new Date().toISOString().split("T")[0],
-          status: "present",
-        });
-        if (res && res.data && res.data.success) {
-          alert("Attendance marked for " + (lastResult.name || lastResult.full_id));
-          onMarked(res.data);
-        } else {
-          alert("Failed to mark teacher attendance.");
-        }
-      } else {
-        alert("Unknown role for recognized face.");
-      }
-    } catch (err) {
-      console.error("Capture & Mark error:", err);
-      alert("Error while marking attendance. See console.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  }, [onMarked]);
 
   if (!open) return null;
 
@@ -148,6 +97,12 @@ export default function FaceRecognitionModal({ open = false, onClose = () => {},
         <div style={{ display: "flex", gap: 12, flex: 1, width: '100%', justifyContent: 'center', paddingBottom: 8 }}>
           <RecognitionCamera onRecognized={handleRecognized} autoRecognize={true} showControls={false} />
         </div>
+        
+        {lastResult && (
+          <div style={{marginTop: '10px', padding: '8px', background: '#f0f0f0', borderRadius: '4px', fontSize: '14px'}}>
+            Last recognized: <strong>{lastResult.name}</strong> ({lastResult.role}) - Confidence: {lastResult.distance ? (1 - lastResult.distance).toFixed(2) : 'N/A'}
+          </div>
+        )}
       </div>
     </div>
   );

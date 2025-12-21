@@ -1,75 +1,78 @@
-import base64
-import numpy as np
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+import numpy as np
+import json
 
-from smart_school_backend.face_engine.encoder import encode_image_base64
-from smart_school_backend.face_engine.store import save_embedding
 from smart_school_backend.utils.db import get_db
+from smart_school_backend.face_engine.encoder import generate_embedding
+from smart_school_backend.models.face_recognition import store_face_embedding, load_all_embeddings
 
-enrollment_bp = Blueprint("enrollment_bp", __name__)
+enrollment_bp = Blueprint("enrollment", __name__)
 
-# ==========================================================
-# POST /api/face/enroll
-# Unified Student / Teacher Face Enrollment
-# ==========================================================
 @enrollment_bp.route("/enroll", methods=["POST"])
-@jwt_required()
 def enroll_face():
     try:
-        data = request.get_json() or {}
+        data = request.json
 
-        role = data.get("role")        # "student" | "teacher"
-        user_id = data.get("user_id")  # integer
-        image_b64 = data.get("image")  # base64 string
+        image = data.get("image")
+        user_id = data.get("user_id")
+        role = data.get("role")
 
-        if not role or not user_id or not image_b64:
-            return jsonify({"error": "Missing role, user_id, or image"}), 400
+        if not image or not user_id or not role:
+            return jsonify({"error": "Missing required fields"}), 400
 
-        # --------------------------------------------------
-        # Generate embedding using encoder
-        # --------------------------------------------------
-        embeddings = encode_image_base64(image_b64)
-
-        if not embeddings:
+        embedding = generate_embedding(image)
+        if embedding is None:
             return jsonify({"error": "No face detected"}), 400
 
-        embedding = np.array(embeddings[0], dtype=np.float32)
+        # Check for existing faces
+        existing_embeddings = load_all_embeddings()
+        for existing in existing_embeddings:
+            dist = np.linalg.norm(embedding - existing["embedding"])
+            if dist < 0.6:
+                return jsonify({
+                    "error": "This face is already enrolled.",
+                    "existing_user": {
+                        "person_id": existing["person_id"],
+                        "role": existing["role"],
+                        "name": existing["name"]
+                    }
+                }), 409
 
-        # Lookup user metadata to store alongside embedding (name/class/section/subject)
-        db = get_db()
-        cur = db.cursor()
-        name = None
-        class_name = None
-        section = None
-        subject = None
+        conn = get_db()
+        cur = conn.cursor()
 
-        if role == "student":
-            cur.execute("SELECT name, class_name, section FROM students WHERE id = ?", (user_id,))
-            r = cur.fetchone()
-            if r:
-                name = r[0]
-                class_name = r[1]
-                section = r[2]
-        elif role == "teacher":
-            cur.execute("SELECT name, subject FROM teachers WHERE id = ?", (user_id,))
-            r = cur.fetchone()
-            if r:
-                name = r[0]
-                subject = r[1]
+        user_data = None
+        if role == 'student':
+            cur.execute("SELECT name, email, class_name, section FROM students WHERE id = ?", (user_id,))
+            user_data = cur.fetchone()
+        elif role == 'teacher':
+            cur.execute("SELECT name, email, subject FROM teachers WHERE id = ?", (user_id,))
+            user_data = cur.fetchone()
 
-        # Save embedding into unified face_embeddings table with metadata
-        save_embedding(user_id, role, embedding, name=name, class_name=class_name, section=section, subject=subject)
+        if not user_data:
+            return jsonify({"error": f"User with id {user_id} and role {role} not found"}), 404
 
+        name = user_data['name']
+        email = user_data['email']
+        
+        if role == 'student':
+            class_name = user_data['class_name']
+            section = user_data['section']
+        else:
+            class_name = None
+            section = None
+
+        # Use the imported function to store the embedding
+        store_face_embedding(role, user_id, name, email, class_name, section, embedding)
+
+        print(f"Successfully enrolled face for person_id: {user_id}, role: {role}")
         return jsonify({
             "status": "success",
-            "message": f"{role.capitalize()} face enrolled successfully",
-            "user_id": user_id
-        }), 200
+            "message": "Face enrolled successfully",
+            "person_id": user_id,
+            "role": role
+        })
 
     except Exception as e:
-        print("ERROR enroll_face:", e)
-        return jsonify({
-            "error": "Internal server error",
-            "details": str(e)
-        }), 500
+        print("Enroll error:", e)
+        return jsonify({"error": "Enrollment failed"}), 500
